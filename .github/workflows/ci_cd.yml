@@ -7,7 +7,7 @@ on:
       - "feature-*"
     tags: [ "v*" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "feature-core_logic", "feature-statistics" ]
 
 permissions:
   contents: write
@@ -102,3 +102,23 @@ jobs:
             В архиве: исполняемый файл `OwnGame.exe` и папка с ресурсами `assets/`.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  gui:
+    name: Qt GUI and integration tests (Linux)
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+      QT_QUICK_BACKEND: software
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          modules: 'qtmultimedia'
+          cache: true
+      - name: Configure GUI and tests
+        run: cmake -S . -B build -DOWNGAME_BUILD_GUI=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Test core and GUI
+        run: ctest --test-dir build --output-on-failure

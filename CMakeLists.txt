@@ -14,7 +14,7 @@ file(GLOB SOURCES "src/*.cpp" "src/*.c")
 
 add_library(OwnGameCore STATIC ${SOURCES})
 if(WIN32)
-    target_link_libraries(OwnGameCore PUBLIC winmm)
+    target_link_libraries(OwnGameCore PUBLIC winmm shell32)
 endif()
 
 add_executable(OwnGame main.cpp)
@@ -43,8 +43,34 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_executable(UnitTests tests/tests.cpp)
+add_executable(UnitTests tests/tests.cpp tests/gui_core_tests.cpp)
 target_link_libraries(UnitTests PRIVATE OwnGameCore GTest::gtest_main)
 
 include(GoogleTest)
 gtest_discover_tests(UnitTests)
+option(OWNGAME_BUILD_GUI "Build the Qt 6 retro desktop interface" OFF)
+if(OWNGAME_BUILD_GUI)
+    find_package(Qt6 6.5 REQUIRED COMPONENTS Quick QuickControls2 Multimedia)
+    set(CMAKE_AUTOMOC ON)
+    qt_add_executable(OwnGameGui gui/main.cpp gui/GameController.cpp gui/GameController.h)
+    target_link_libraries(OwnGameGui PRIVATE OwnGameCore Qt6::Quick Qt6::QuickControls2 Qt6::Multimedia)
+    qt_add_resources(OwnGameGui "gui_resources" PREFIX "/" FILES
+        gui/qml/Main.qml gui/qml/RetroButton.qml gui/qml/Television.qml gui/qml/Cat.qml
+        gui/assets/Tiny5-Regular.ttf gui/assets/OFL-Tiny5.txt)
+    add_custom_command(TARGET OwnGameGui POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:OwnGameGui>/assets")
+endif()
+
+if(OWNGAME_BUILD_GUI)
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+    qt_add_executable(GuiTests tests/gui_integration_tests.cpp gui/GameController.cpp gui/GameController.h)
+    target_include_directories(GuiTests PRIVATE gui)
+    target_link_libraries(GuiTests PRIVATE OwnGameCore GTest::gtest Qt6::Quick Qt6::QuickControls2 Qt6::Multimedia Qt6::Test)
+    qt_add_resources(GuiTests "test_gui_resources" PREFIX "/" FILES
+        gui/qml/Main.qml gui/qml/RetroButton.qml gui/qml/Television.qml gui/qml/Cat.qml
+        gui/assets/Tiny5-Regular.ttf)
+    add_custom_command(TARGET GuiTests POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:GuiTests>/assets")
+    add_test(NAME GuiIntegration COMMAND GuiTests)
+    set_tests_properties(GuiIntegration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+endif()

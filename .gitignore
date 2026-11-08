@@ -35,3 +35,5 @@ docs/
 # OS system files
 .DS_Store
 Thumbs.db
+# Optional GUI / console verification builds
+build-*/

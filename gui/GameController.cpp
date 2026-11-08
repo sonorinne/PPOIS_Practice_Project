@@ -1,0 +1,135 @@
+#include "GameController.h"
+#include "AudioQuestion.h"
+#include "ImageQuestion.h"
+#include <QCoreApplication>
+#include <QDir>
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QUrl>
+
+GameController::GameController(QObject* parent) : QObject(parent) {
+    Database db(":memory:"); // Seed content only; personal history is stored separately.
+    db.Initialize(); db.LoadCategories(categoryData); db.LoadQuestions(questionData);
+    effects = settings.value("effects", true).toBool();
+    player = settings.value("player", "Игрок").toString();
+    history = QJsonDocument::fromJson(settings.value("history").toByteArray()).array().toVariantList();
+}
+QVariantList GameController::categories() const {
+    QVariantList result;
+    for (const auto& c : categoryData.GetAll()) result << QVariantMap{{"id", c->GetId()}, {"name", QString::fromStdString(c->GetName())}};
+    return result;
+}
+QString GameController::categoryName(int id) const { return QString::fromStdString(categoryData.GetById(id)->GetName()); }
+QVariantMap GameController::state() const {
+    const int good = training ? trainingSession.GetStatistics().GetTotal().correct : game.GetSession().GetCorrectCount();
+    const int bad = training ? trainingSession.GetStatistics().GetTotal().total - good : game.GetSession().GetIncorrectCount();
+    QVariantMap s{{"screen", screen}, {"player", player}, {"effects", effects}, {"training", training},
+        {"score", training ? trainingScore : game.GetSession().GetScore()}, {"correctCount", good}, {"wrongCount", bad},
+        {"answeredCount", good + bad}, {"round", board.GetRound()}, {"answered", answered}, {"correct", correct},
+        {"catTheme", QString::fromStdString(board.GetCatTheme())}, {"error", error}, {"answer", answerText}, {"history", history}, {"mistakes", mistakes},
+        {"canNextBoard", board.HasNextBoard()}, {"boardComplete", board.IsComplete()},
+        {"total", training ? trainingSession.GetQuestionCount() : 30}, {"number", training ? qMin(trainingSession.GetCurrentNumber(), trainingSession.GetQuestionCount()) : good + bad + 1}};
+    QVariantList rows;
+    int rowIndex = 0;
+    for (const auto& row : board.GetRows()) {
+        QVariantList cells;
+        for (int col = 0; col < 5; ++col) cells << QVariantMap{{"index", rowIndex * 5 + col}, {"cost", (col + 1) * 100}, {"used", board.IsUsed(rowIndex * 5 + col)}};
+        rows << QVariantMap{{"name", QString::fromStdString(row.name)}, {"cells", cells}};
+        ++rowIndex;
+    }
+    s["rows"] = rows;
+    if (current) {
+        auto mediaQuestion = current;
+        if (auto cat = std::dynamic_pointer_cast<CatQuestion>(current)) mediaQuestion = cat->GetSource();
+        QString kind = "text", path;
+        if (auto audio = std::dynamic_pointer_cast<AudioQuestion>(mediaQuestion)) { kind = "audio"; path = QString::fromStdString(audio->GetAudioPath()); }
+        if (auto image = std::dynamic_pointer_cast<ImageQuestion>(mediaQuestion)) { kind = "image"; path = QString::fromStdString(image->GetImagePath()); }
+        s["kind"] = kind; s["text"] = QString::fromStdString(current->GetText());
+        s["theme"] = categoryName(current->GetCategoryId()); s["cost"] = current->GetCost();
+        s["primaryAnswer"] = QString::fromStdString(current->GetPrimaryAnswer());
+        s["media"] = path.isEmpty() ? QString() : QUrl::fromLocalFile(QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(path)).toString();
+    }
+    return s;
+}
+void GameController::reset(const QString& name, bool isTraining) {
+    player = name.trimmed().isEmpty() ? "Игрок" : name.trimmed().left(24);
+    settings.setValue("player", player);
+    training = isTraining; game = Game(); trainingSession = TrainingSession(); current.reset();
+    error.clear(); mistakes.clear(); answerText.clear(); trainingScore = 0; saved = false; answered = false;
+}
+void GameController::startClassic(const QString& name) {
+    reset(name, false);
+    board.Reset(categoryData.GetAll(), questionData.GetAll());
+    if (board.NextBoard()) screen = "board";
+    else { screen = "menu"; error = "Для табло нужны шесть полных тем."; }
+    emit changed();
+}
+void GameController::startTraining(const QString& name, const QVariantList& ids, int minCost, int maxCost, int count) {
+    reset(name, true);
+    TrainingSettings config; config.min_cost = minCost; config.max_cost = maxCost; config.question_count = count;
+    for (const auto& id : ids) config.category_ids.push_back(id.toInt());
+    try { trainingSession.Generate(questionData.GetAll(), config); current = trainingSession.GetCurrentQuestion(); present(); }
+    catch (const std::exception& e) { error = QString::fromUtf8(e.what()); emit changed(); }
+}
+void GameController::select(int cell) {
+    if (screen != "board") return;
+    try {
+        pendingCell = cell;
+        if (cell == board.GetCatSlot() && !board.IsUsed(cell)) { screen = "cat"; emit changed(); return; }
+        current = board.Select(cell); present();
+    } catch (const std::exception& e) { error = QString::fromUtf8(e.what()); emit changed(); }
+}
+void GameController::catStake(int stake) {
+    if (screen != "cat") return;
+    try { current = board.Select(pendingCell, stake); present(); }
+    catch (const std::exception& e) { error = QString::fromUtf8(e.what()); emit changed(); }
+}
+void GameController::present() { answered = false; error.clear(); answerText.clear(); screen = "question"; emit changed(); }
+void GameController::submit(const QString& input) {
+    if (screen != "question" || answered || !current) return;
+    auto text = input.trimmed().normalized(QString::NormalizationForm_C);
+    // Existing questions own accepted aliases. Try case variants without fuzzy guessing.
+    QStringList candidates{text, text.toLower(), text.toUpper()};
+    if (!text.isEmpty()) { auto capital = text.toLower(); capital[0] = capital[0].toUpper(); candidates << capital; }
+    QString accepted = text;
+    for (const auto& candidate : candidates) if (!candidate.isEmpty() && current->CheckAnswer(candidate.toStdString())) { accepted = candidate; break; }
+    if (training) {
+        correct = trainingSession.SubmitAnswer(accepted.toStdString());
+        if (correct) trainingScore += current->GetCost();
+    } else correct = game.AnswerQuestion(current, accepted.toStdString());
+    answerText = text; answered = true;
+    if (!correct) mistakes << QVariantMap{{"theme", categoryName(current->GetCategoryId())}, {"text", QString::fromStdString(current->GetText())}, {"answer", QString::fromStdString(current->GetPrimaryAnswer())}};
+    emit changed();
+}
+void GameController::advance() {
+    if (screen != "question" || !answered) return;
+    current.reset();
+    if (training) {
+        if (trainingSession.IsFinished()) { finish(); return; }
+        current = trainingSession.GetCurrentQuestion(); present();
+    } else { screen = "board"; emit changed(); }
+}
+void GameController::nextBoard() {
+    if (screen != "board" || !board.IsComplete()) return;
+    if (!board.NextBoard()) { finish(); return; }
+    emit changed();
+}
+void GameController::saveResult() {
+    if (saved) return;
+    auto s = state();
+    history.prepend(QVariantMap{{"date", QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm")}, {"player", player},
+        {"mode", training ? "Тренировка" : "Табло"}, {"score", s["score"]}, {"correct", s["correctCount"]}, {"total", s["answeredCount"]}, {"mistakes", mistakes}});
+    while (history.size() > 50) history.removeLast();
+    settings.setValue("history", QJsonDocument(QJsonArray::fromVariantList(history)).toJson(QJsonDocument::Compact));
+    saved = true;
+}
+void GameController::finish() { if (screen == "board" || screen == "question" || screen == "cat") saveResult(); current.reset(); screen = "results"; emit changed(); }
+void GameController::menu() { if (screen == "board" || screen == "question" || screen == "cat") saveResult(); current.reset(); error.clear(); screen = "menu"; emit changed(); }
+void GameController::showHistory() { screen = "history"; emit changed(); }
+void GameController::reviewMistakes() {
+    if (!training || screen != "results" || trainingSession.GetMistakes().empty()) return;
+    trainingSession = trainingSession.CreateMistakesReview(); mistakes.clear(); trainingScore = 0; saved = false;
+    current = trainingSession.GetCurrentQuestion(); present();
+}
+void GameController::setEffects(bool on) { effects = on; settings.setValue("effects", on); emit changed(); }

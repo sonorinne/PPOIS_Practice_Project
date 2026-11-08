@@ -309,7 +309,7 @@ TEST(DatabaseHelperTest, SplitStringTrimmingAndEmpty) {
 
 TEST(DatabaseTest, InvalidDatabasePathThrows) {
     EXPECT_THROW({
-        Database bad_db("Z:\\non_existent_drive\\invalid.db");
+        Database bad_db("."); // A directory is never a valid SQLite database file.
         bad_db.Initialize();
         }, std::runtime_error);
 }
