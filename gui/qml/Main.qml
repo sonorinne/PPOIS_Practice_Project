@@ -63,11 +63,11 @@ ApplicationWindow {
             Item {
                 anchors.fill: parent; visible: page === "menu"
                 Column {
-                    y: 64; spacing: -27
+                    y: 48; spacing: -25
                     TextMetrics { id: titleMetrics; text: "СВОЯ ИГРА"; font: titleText.font }
-                    TextMetrics { id: welcomeMetrics; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР!"; font.family: "Oswald"; font.pixelSize: 22 }
-                    Text { objectName: "menuWelcome"; text: welcomeMetrics.text; color: "#e1ce85"; font.family: "Oswald"; font.pixelSize: 22; font.letterSpacing: Math.max(0,(titleMetrics.width - welcomeMetrics.width)/(text.length-1)) }
-                    Text { id: titleText; objectName: "menuTitle"; text: "СВОЯ ИГРА"; font.bold: true; font.pixelSize: 88; font.letterSpacing: 1; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1" }
+                    TextMetrics { id: welcomeMetrics; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР!"; font.family: "Oswald"; font.pixelSize: 32 }
+                    Text { objectName: "menuWelcome"; text: welcomeMetrics.text; color: "#e1ce85"; font.family: "Oswald"; font.pixelSize: 32; font.letterSpacing: Math.max(0,(titleMetrics.width - welcomeMetrics.width)/(text.length-1)) }
+                    Text { id: titleText; objectName: "menuTitle"; text: "СВОЯ ИГРА"; font.bold: true; font.pixelSize: 118; font.letterSpacing: 1; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1" }
                 }
                 TextField { id: nameInput; objectName: "playerNameInput"; horizontalAlignment: TextInput.AlignHCenter; x: 0; y: 265; width: 500; height: 49; text: window.playerName; placeholderText: "Как тебя представить?"; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" } }
                 Column { y: 350; spacing: 18

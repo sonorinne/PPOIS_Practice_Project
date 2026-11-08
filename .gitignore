@@ -37,3 +37,14 @@ docs/
 Thumbs.db
 # Optional GUI / console verification builds
 build-*/
+
+# Qt Creator settings and local CMake presets
+CMakeLists.txt.user*
+CMakeUserPresets.json
+.qtcreator/
+.qtc_clangd/
+*.qmlproject.user*
+
+# Generated test coverage
+coverage_report/
+coverage.xml
