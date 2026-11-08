@@ -3,6 +3,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QQuickItem>
 #include <QQuickStyle>
 #include <QTest>
 #include <QTemporaryDir>
@@ -59,20 +60,26 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
         auto directory=qEnvironmentVariable("OWNGAME_SCREENSHOT_DIR");
         if(!directory.isEmpty()) { QDir().mkpath(directory); EXPECT_TRUE(window->grabWindow().save(directory+"/"+name+".png")); }
     };
+    auto click=[&](const char* name) {
+        auto item=window->findChild<QQuickItem*>(name); EXPECT_NE(item,nullptr);
+        if(item) QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,item->mapToScene(QPointF(item->width()/2,item->height()/2)).toPoint());
+    };
     capture("01-menu");
-    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(1150,40)); capture("11-settings"); QTest::keyClick(window,Qt::Key_Escape);
+    click("settingsButton"); capture("11-settings"); QTest::keyClick(window,Qt::Key_Escape);
     window->setProperty("page","setup"); capture("10-training-setup");
-    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(75,238));
-    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(200,618)); QTest::qWait(150);
+    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(75,282));
+    click("startTrainingButton"); QTest::qWait(150);
     ASSERT_EQ(c.state()["screen"].toString(),"question");
     EXPECT_EQ(c.state()["theme"].toString(),QString::fromUtf8("Эдем")); c.menu();
-    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(180,544));
+    click("playButton");
     ASSERT_EQ(c.state()["screen"].toString(),"board"); capture("02-board");
     QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(486,194)); QTest::qWait(650);
     if(c.state()["screen"]=="cat") { capture("03-cat"); c.catStake(100); }
     EXPECT_EQ(c.state()["screen"].toString(),"question"); capture("04-question");
     c.submit(""); capture("05-answer"); c.advance(); c.finish(); capture("06-results"); c.menu();
     c.startTraining("Тест",{1},100,200,2);
+    auto row=window->findChild<QQuickItem*>("answerRow"); ASSERT_NE(row,nullptr);
+    EXPECT_NEAR(row->x()+row->width()/2,584.0,1.0);
     auto field=window->findChild<QObject*>("answerInput"); ASSERT_NE(field,nullptr);
     field->setProperty("text","previous answer"); c.submit(""); c.advance();
     EXPECT_TRUE(field->property("text").toString().isEmpty()); c.menu();
@@ -89,6 +96,7 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
         if(c.state()["screen"]=="cat") { capture("03-cat"); c.catStake(500); break; }
         c.submit(""); c.advance();
     }
+    click("exitButton"); capture("12-exit-confirmation"); QTest::keyClick(window,Qt::Key_Escape);
     c.finish(); c.showHistory(); capture("09-history");
     EXPECT_TRUE(warnings.isEmpty()) << warnings.join("\n").toStdString();
 }

@@ -15,6 +15,8 @@ ApplicationWindow {
     property var chosenCategories: []
     property string playerName: s.player
     property string backendScreen: "menu"
+    property bool quitting: false
+    onClosing: function(close) { if (!quitting && ["board","question","cat"].indexOf(page) >= 0) { close.accepted = false; exitDialog.open() } }
     Shortcut { sequence: "Return"; enabled: page === "question" && window.s.answered; onActivated: game.advance() }
     font.family: "Oswald"
     font.pixelSize: 24
@@ -36,8 +38,9 @@ ApplicationWindow {
         Text { x: 90; y: 27; text: "СВОЯ ИГРА / ИНТЕЛЛЕКТУАЛЬНЫЙ ТРЕНАЖЁР"; color: "#b2c6df"; font.pixelSize: 21; font.letterSpacing: 1.1 }
         Row {
             anchors.right: parent.right; anchors.rightMargin: 44; y: 22; spacing: 16
-            RetroButton { text: "НАСТРОЙКИ"; implicitHeight: 38; font.pixelSize: 18; onClicked: settingsDialog.open() }
+            RetroButton { objectName: "settingsButton"; text: "НАСТРОЙКИ"; implicitHeight: 38; font.pixelSize: 18; onClicked: settingsDialog.open() }
             RetroButton { text: "МЕНЮ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; visible: page !== "menu"; onClicked: { if (["board", "question", "cat"].indexOf(page) >= 0) leaveDialog.open(); else { game.menu(); page = "menu" } } }
+            RetroButton { objectName: "exitButton"; text: "ВЫЙТИ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; onClicked: { if (["board","question","cat"].indexOf(page) >= 0) exitDialog.open(); else { window.quitting = true; window.close() } } }
         }
         Rectangle { x: 44; y: 72; width: 1192; height: 1; color: "#4a5b85" }
 
@@ -47,16 +50,13 @@ ApplicationWindow {
             ParallelAnimation { id: reveal; NumberAnimation { target: content; property: "opacity"; from: 0; to: 1; duration: window.s.effects ? 240 : 0 } NumberAnimation { target: content; property: "scale"; from: 0.975; to: 1; duration: window.s.effects ? 300 : 0; easing.type: Easing.OutCubic } }
             Item {
                 anchors.fill: parent; visible: page === "menu"
-                Text { y: 12; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР"; color: "#e1ce85"; font.pixelSize: 22; font.letterSpacing: 2 }
-                Text { y: 62; text: "СВОЯ\nИГРА"; lineHeight: 0.82; font.pixelSize: 108; font.letterSpacing: 6; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1" }
-                Text { y: 310; text: "Один игрок. Шесть тем. Твой ход."; color: "#9cb6d9"; font.pixelSize: 26 }
-                TextField { id: nameInput; x: 0; y: 348; width: 390; height: 49; text: window.playerName; placeholderText: "Как тебя представить?"; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" } }
-                Column { y: 418; spacing: 12
-                    Row { spacing: 12
-                        RetroButton { text: "ИГРАТЬ  →"; accent: true; implicitWidth: 250; onClicked: game.startClassic(nameInput.text) }
-                        RetroButton { text: "ТРЕНИРОВКА"; implicitWidth: 250; onClicked: page = "setup" }
-                    }
-                    RetroButton { text: "АРХИВ РЕЗУЛЬТАТОВ"; implicitWidth: 512; onClicked: game.showHistory() }
+                Text { y: 36; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР"; color: "#e1ce85"; font.pixelSize: 22; font.letterSpacing: 2 }
+                Text { objectName: "menuTitle"; y: 90; width: 550; height: 130; text: "СВОЯ ИГРА"; font.bold: true; font.pixelSize: 88; font.letterSpacing: 1; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1"; fontSizeMode: Text.Fit; minimumPixelSize: 65 }
+                TextField { id: nameInput; x: 0; y: 265; width: 500; height: 49; text: window.playerName; placeholderText: "Как тебя представить?"; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" } }
+                Column { y: 350; spacing: 18
+                    RetroButton { objectName: "playButton"; text: "ИГРАТЬ"; accent: true; implicitWidth: 500; onClicked: game.startClassic(nameInput.text) }
+                    RetroButton { objectName: "trainingButton"; text: "ТРЕНИРОВКА"; implicitWidth: 500; onClicked: page = "setup" }
+                    RetroButton { text: "АРХИВ РЕЗУЛЬТАТОВ"; implicitWidth: 500; onClicked: game.showHistory() }
                 }
                 Cat { x: 600; y: -20; width: 600; height: 690; animated: window.s.effects }
             }
@@ -154,14 +154,14 @@ ApplicationWindow {
                     RetroButton { text: "СНАЧАЛА"; implicitHeight: 32; font.pixelSize: 18; onClicked: { audio.position = 0; audio.play() } }
                 }
                 Text { x: 115; y: 371; visible: window.s.kind === "audio" && audio.error !== MediaPlayer.NoError; text: "Не удалось воспроизвести аудио. Проверьте файл и устройство звука."; color: "#e9b398"; font.pixelSize: 20 }
-                Row { x: 150; y: window.s.kind === "image" ? 500 : 407; spacing: 12; visible: !window.s.answered
+                Row { objectName: "answerRow"; anchors.horizontalCenter: parent.horizontalCenter; y: window.s.kind === "image" ? 500 : 407; spacing: 12; visible: !window.s.answered
                     TextField { id: answerInput; objectName: "answerInput"; width: 635; height: 53; placeholderText: "Твой ответ…"; placeholderTextColor: "#a2b5cf"; color: "#eff0db"; font.family: "DejaVu Sans"; font.pixelSize: 22; selectByMouse: true; maximumLength: 250
                         background: Rectangle { color: "#081737"; border.color: answerInput.activeFocus ? "#e5d58b" : "#6c84b2" }
                         onAccepted: if (page === "question") { game.submit(text); audio.stop() }
                     }
-                    RetroButton { text: "ОТВЕТИТЬ"; accent: true; onClicked: { game.submit(answerInput.text); audio.stop() } }
+                    RetroButton { objectName: "submitButton"; text: "ОТВЕТИТЬ"; accent: true; onClicked: { game.submit(answerInput.text); audio.stop() } }
                 }
-                RetroButton { x: 470; y: window.s.kind === "image" ? 560 : 482; implicitHeight: window.s.kind === "image" ? 36 : 52; visible: !window.s.answered; text: "НЕ ЗНАЮ / ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.revealAnswer(); audio.stop() } }
+                RetroButton { anchors.horizontalCenter: parent.horizontalCenter; y: window.s.kind === "image" ? 560 : 482; implicitHeight: window.s.kind === "image" ? 36 : 52; visible: !window.s.answered; text: "НЕ ЗНАЮ / ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.revealAnswer(); audio.stop() } }
                 Column { x: 100; y: 401; width: 968; spacing: 12; visible: window.s.answered
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: window.s.correct ? "ВЕРНО!" : "ОТВЕТ: " + (window.s.primaryAnswer || ""); color: window.s.correct ? "#b7dca0" : "#f0d394"; font.pixelSize: 31; wrapMode: Text.WordWrap }
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: "Твой ответ: " + (window.s.answer || "пропуск"); color: "#a5b8d5"; font.family: "DejaVu Sans"; font.pixelSize: 17; elide: Text.ElideRight }
@@ -172,22 +172,28 @@ ApplicationWindow {
                 anchors.fill: parent; visible: page === "setup"
                 Text { text: "ТРЕНИРОВКА"; color: "#eee2a6"; font.pixelSize: 56 }
                 Text { y: 65; text: "Выбери темы или оставь всё пустым для смешанного набора."; color: "#9fb6d5"; font.pixelSize: 25 }
-                ScrollView { y: 118; width: parent.width; height: 238; clip: true; contentWidth: availableWidth
-                Flow { width: 1135; spacing: 8
-                    Repeater { model: game.categories
-                        CheckBox { required property var modelData; text: modelData.name; font.pixelSize: 23; palette.windowText: "#e2dcae"; checked: false
-                            onClicked: { let ids = window.chosenCategories.slice(); let i = ids.indexOf(modelData.id); if(checked && i < 0) ids.push(modelData.id); else if(!checked && i >= 0) ids.splice(i,1); window.chosenCategories = ids }
+                CheckBox { id: randomThemes; objectName: "randomThemes"; y: 108; text: "Случайные темы / смешанная тренировка"; checked: window.chosenCategories.length === 0; palette.windowText: "#e2dcae"; font.pixelSize: 24; onClicked: { window.chosenCategories = [] } }
+                ScrollView { y: 160; width: 590; height: 390; clip: true; contentWidth: availableWidth
+                    Column { width: 565; spacing: 5
+                        Repeater { model: game.categories
+                            CheckBox { required property var modelData; width: 560; height: 44; text: modelData.name; font.pixelSize: 23; palette.windowText: "#e2dcae"; checked: window.chosenCategories.indexOf(modelData.id) >= 0
+                                onClicked: { let ids = window.chosenCategories.slice(); let i = ids.indexOf(modelData.id); if (checked && i < 0) ids.push(modelData.id); else if (!checked && i >= 0) ids.splice(i,1); window.chosenCategories = ids }
+                                contentItem: Text { text: parent.text; font: parent.font; color: "#e2dcae"; leftPadding: parent.indicator.width + parent.spacing; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                            }
                         }
                     }
                 }
+                Column { x: 660; y: 130; width: 440; spacing: 18
+                    Text { text: "СЛОЖНОСТЬ И ДЛИНА ТРЕНИРОВКИ"; color: "#e1ce85"; font.pixelSize: 24 }
+                    Row { spacing: 24
+                        Column { spacing: 8; Text { text: "ОТ СТОИМОСТИ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { id: minCost; model: [100,200,300,400,500]; width: 190; font.pixelSize: 24 } }
+                        Column { spacing: 8; Text { text: "ДО СТОИМОСТИ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { id: maxCost; model: [100,200,300,400,500]; currentIndex: 4; width: 190; font.pixelSize: 24 } }
+                    }
+                    Text { text: "КОЛИЧЕСТВО ВОПРОСОВ"; color: "#a4b9d4"; font.pixelSize: 20 }
+                    ComboBox { id: questionCount; model: [5,10,15,20,30]; currentIndex: 1; width: 404; font.pixelSize: 24 }
+                    Text { width: 420; text: "Без штрафа за ошибки.\nС повторением трудных вопросов."; color: "#97aece"; font.pixelSize: 23; wrapMode: Text.WordWrap }
+                    RetroButton { objectName: "startTrainingButton"; text: "НАЧАТЬ ТРЕНИРОВКУ"; implicitWidth: 404; accent: true; enabled: minCost.currentIndex <= maxCost.currentIndex; onClicked: game.startTraining(window.playerName, window.chosenCategories, Number(minCost.currentText), Number(maxCost.currentText), Number(questionCount.currentText)) }
                 }
-                Row { y: 378; spacing: 26
-                    Column { spacing: 8; Text { text: "ОТ СТОИМОСТИ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { id: minCost; model: [100,200,300,400,500]; width: 190; font.pixelSize: 24 } }
-                    Column { spacing: 8; Text { text: "ДО СТОИМОСТИ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { id: maxCost; model: [100,200,300,400,500]; currentIndex: 4; width: 190; font.pixelSize: 24 } }
-                    Column { spacing: 8; Text { text: "ВОПРОСОВ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { id: questionCount; model: [5,10,15,20,30]; currentIndex: 1; width: 190; font.pixelSize: 24 } }
-                }
-                RetroButton { y: 492; text: "НАЧАТЬ ТРЕНИРОВКУ →"; accent: true; enabled: minCost.currentIndex <= maxCost.currentIndex; onClicked: game.startTraining(window.playerName, window.chosenCategories, Number(minCost.currentText), Number(maxCost.currentText), Number(questionCount.currentText)) }
-                Text { x: 470; y: 502; text: "Без штрафа за ошибки. С повторением трудных вопросов."; color: "#97aece"; font.pixelSize: 23 }
             }
             Item {
                 anchors.fill: parent; visible: page === "results"
@@ -240,7 +246,7 @@ ApplicationWindow {
     MediaPlayer { id: audio; audioOutput: audioOutput; source: page === "question" && window.s.kind === "audio" ? window.s.media : ""; onSourceChanged: { if(source.toString().length > 0) play() } }
     AudioOutput { id: musicOutput; volume: window.s.music && !(page === "question" && window.s.kind === "audio" && !window.s.answered) ? window.s.musicVolume : 0 }
     MediaPlayer { id: backgroundMusic; source: "qrc:/gui/assets/background.mp3"; audioOutput: musicOutput; loops: MediaPlayer.Infinite; Component.onCompleted: { if(window.s.music) play() } }
-    Connections { target: game; function onChanged() { if(window.s.music) backgroundMusic.play(); else backgroundMusic.pause() } }
+    Connections { target: game; function onChanged() { if(window.s.music && backgroundMusic.playbackState !== MediaPlayer.PlayingState) backgroundMusic.play(); else if(!window.s.music && backgroundMusic.playbackState === MediaPlayer.PlayingState) backgroundMusic.pause() } }
     SoundEffect { id: opening; source: "qrc:/gui/assets/open.wav"; volume: window.s.soundVolume }
     SoundEffect { id: rightSound; source: "qrc:/gui/assets/right.wav"; volume: window.s.soundVolume }
     SoundEffect { id: wrongSound; source: "qrc:/gui/assets/wrong.wav"; volume: window.s.soundVolume }
@@ -253,6 +259,11 @@ ApplicationWindow {
             Slider { width: 430; from: 0; to: 1; value: window.s.soundVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value) }
             CheckBox { text: "Помехи старого экрана"; checked: window.s.effects; onClicked: game.setEffects(checked) }
         }
+    }
+    Dialog {
+        id: exitDialog; anchors.centerIn: parent; width: 510; modal: true; title: "Выйти из приложения?"; standardButtons: Dialog.Yes | Dialog.No
+        Label { text: "Отвеченные вопросы сохранятся в архиве."; font.pixelSize: 22 }
+        onAccepted: { selectionTimer.stop(); game.finish(); window.quitting = true; window.close() }
     }
     Dialog {
         id: leaveDialog; anchors.centerIn: parent; width: 520; modal: true; title: "Завершить сессию?"; standardButtons: Dialog.Ok | Dialog.Cancel

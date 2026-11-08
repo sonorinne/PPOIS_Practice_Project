@@ -17,9 +17,10 @@ Button {
         verticalAlignment: Text.AlignVCenter
     }
     background: Rectangle {
-        color: !control.enabled ? "#15203a" : control.down ? "#fff0b5" : control.accent || control.hovered ? "#dfcc80" : "#132459"
-        border.color: control.activeFocus ? "white" : "#847b5b"
+        color: !control.enabled ? "#15203a" : control.down ? "#fff0b5" : control.hovered ? "#fff0b0" : control.accent ? "#dfcc80" : "#132459"
+        border.color: control.activeFocus || control.hovered ? "white" : "#847b5b"
         border.width: control.activeFocus ? 3 : 1
+        Behavior on color { ColorAnimation { duration: 100 } }
         Rectangle { x: 3; y: 3; width: parent.width - 6; height: 1; color: "#ffffff"; opacity: 0.15 }
     }
 }
