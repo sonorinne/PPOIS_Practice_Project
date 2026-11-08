@@ -8,8 +8,8 @@ Item {
         anchors.centerIn: parent; rotation: -17
         gradient: Gradient {
             GradientStop { position: 0; color: "#081329" }
-            GradientStop { position: 0.43; color: "#10266e" }
-            GradientStop { position: 0.7; color: "#1918ad" }
+            GradientStop { position: 0.43; color: "#081842" }
+            GradientStop { position: 0.7; color: "#080d55" }
             GradientStop { position: 1; color: "#070b20" }
         }
         opacity: 0.7
@@ -24,16 +24,20 @@ Item {
         }
     }
     Text { x: parent.width - 250; y: 150; text: "Σ   φ\n     E = mc²\nπ      ∞"; color: "#c9b868"; font.pixelSize: 30; opacity: 0.12; lineHeight: 1.8; rotation: -10 }
+    Repeater {
+        model: 2
+        Item { required property int index; x: index === 0 ? 5 : tv.width - 175; y: 125; width: 170; height: 560
+            Text { anchors.fill: parent; text: index === 0 ? "∫ f(x) dx\n\nH₂O  ⟶  O₂\n\nα + β = π\n\nF = ma\n\nλ = c / ν" : "Σ n²\n\nE = mc²\n\nΔt → ∞\n\nψ(x, t)\n\nπ ≈ 3.14159"; font.family: "DejaVu Sans"; font.pixelSize: 24; color: "#c7b768"; opacity: 0.18; rotation: index === 0 ? -9 : 9 }
+            Rectangle { y: 185; width: 145; height: 145; radius: 72; color: "transparent"; border.color: "#5478a2"; opacity: 0.18; rotation: 35; Rectangle { anchors.centerIn: parent; width: 90; height: 90; color: "transparent"; border.color: "#b8b476" } }
+        }
+    }
     Canvas {
-        anchors.fill: parent; visible: tv.effects; opacity: 0.13
+        anchors.fill: parent; visible: tv.effects; opacity: 0.04
         onPaint: {
             let c = getContext("2d"); c.clearRect(0, 0, width, height)
             c.fillStyle = "#000000"
             for (let y = 0; y < height; y += 4) c.fillRect(0, y, width, 1)
-            for (let i = 0; i < 2200; i++) {
-                c.fillStyle = Math.random() > 0.5 ? "#fff" : "#000"
-                c.fillRect(Math.random() * width, Math.random() * height, 1, 1)
-            }
+
         }
         Timer { interval: 130; repeat: true; running: tv.effects; onTriggered: parent.requestPaint() }
     }

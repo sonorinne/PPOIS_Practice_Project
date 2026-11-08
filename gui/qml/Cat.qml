@@ -3,6 +3,12 @@ Item {
     id: cat
     property bool animated: true
     property real bob: 0
+    property real tail: 0
+    property real eyelid: 0
+    onTailChanged: drawing.requestPaint()
+    onEyelidChanged: drawing.requestPaint()
+    SequentialAnimation on tail { running: cat.animated; loops: Animation.Infinite; NumberAnimation { to: 0.1; duration: 1000 } NumberAnimation { to: -0.1; duration: 1000 } }
+    SequentialAnimation on eyelid { running: cat.animated; loops: Animation.Infinite; PauseAnimation { duration: 3300 } NumberAnimation { to: 1; duration: 100 } NumberAnimation { to: 0; duration: 140 } }
     implicitWidth: 350; implicitHeight: 390
     SequentialAnimation on bob {
         running: cat.animated; loops: Animation.Infinite
@@ -10,6 +16,7 @@ Item {
         NumberAnimation { to: 0; duration: 1800; easing.type: Easing.InOutSine }
     }
     Canvas {
+        id: drawing
         anchors.fill: parent
         transform: Translate { y: cat.bob }
         onPaint: {
@@ -20,7 +27,9 @@ Item {
             }
             // Original low-poly scholar cat: deliberately angular, textured and slightly odd.
             c.fillStyle = "#030a1b"; c.beginPath(); c.ellipse(180,365,135,16,0,0,7); c.fill()
+            c.save(); c.translate(239,320); c.rotate(cat.tail); c.translate(-239,-320);
             poly([239,281,292,270,316,296,309,339,279,359,228,357,222,338,275,336,286,310,270,300,242,314], "#587e94")
+            c.restore();
             poly([102,239,217,233,248,346,212,365,93,359,78,335], "#395c79")
             poly([145,253,194,259,210,347,133,349], "#94ab9c")
             poly([95,263,129,278,112,347,80,350], "#699890")
@@ -36,6 +45,7 @@ Item {
             poly([173,170,204,153,230,172,234,204,203,217,178,204], "#c7d588")
             poly([112,168,124,164,126,202,114,205], "#0a1e30")
             poly([196,165,208,163,210,202,198,205], "#071a2c")
+            if(cat.eyelid > 0) { c.fillStyle="#527e80"; c.fillRect(88,153,60,65*cat.eyelid); c.fillRect(173,153,63,65*cat.eyelid) }
             poly([147,214,175,212,162,231], "#bca5a2")
             c.strokeStyle = "#192e4a"; c.lineWidth = 3; c.beginPath(); c.moveTo(161,229); c.lineTo(163,246); c.lineTo(138,239); c.moveTo(163,246); c.lineTo(187,237); c.stroke()
             c.strokeStyle = "#bdd2ae"; c.lineWidth = 2

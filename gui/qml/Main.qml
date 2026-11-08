@@ -11,18 +11,20 @@ ApplicationWindow {
     property var s: game.state
     property string page: "menu"
     property int selectedCell: -1
-    property int hoveredRow: -1
+    property int serial: 0
     property var chosenCategories: []
     property string playerName: s.player
     property string backendScreen: "menu"
     Shortcut { sequence: "Return"; enabled: page === "question" && window.s.answered; onActivated: game.advance() }
-    font.family: "Tiny5"
+    font.family: "Oswald"
     font.pixelSize: 24
     Connections {
         target: game
-        function onChanged() { if (game.state.screen !== window.backendScreen) { window.backendScreen = game.state.screen; window.page = game.state.screen } }
+        function onQuestionOpened() { if(window.s.sounds) opening.play() }
+        function onResponseSubmitted(correct) { if(window.s.sounds) { if(correct) rightSound.play(); else wrongSound.play() } }
+        function onChanged() { if (game.state.serial !== window.serial) { window.serial = game.state.serial; answerInput.text = ""; reveal.restart(); Qt.callLater(function() { answerInput.forceActiveFocus() }) } if (game.state.screen !== window.backendScreen) { window.backendScreen = game.state.screen; window.page = game.state.screen } }
     }
-    onPageChanged: { reveal.restart(); answerInput.text = ""; selectedCell = -1; hoveredRow = -1; audio.stop(); if(page === "question") Qt.callLater(function() { answerInput.forceActiveFocus() }) }
+    onPageChanged: { reveal.restart(); answerInput.text = ""; selectedCell = -1;  audio.stop(); if(page === "question") Qt.callLater(function() { answerInput.forceActiveFocus() }) }
     Item {
         id: stage
         width: 1280; height: 800
@@ -34,7 +36,7 @@ ApplicationWindow {
         Text { x: 90; y: 27; text: "СВОЯ ИГРА / ИНТЕЛЛЕКТУАЛЬНЫЙ ТРЕНАЖЁР"; color: "#b2c6df"; font.pixelSize: 21; font.letterSpacing: 1.1 }
         Row {
             anchors.right: parent.right; anchors.rightMargin: 44; y: 22; spacing: 16
-            CheckBox { id: effectToggle; text: "ЭФИР / CRT"; checked: window.s.effects; font.pixelSize: 19; palette.windowText: "#adbbd6"; onClicked: game.setEffects(checked) }
+            RetroButton { text: "НАСТРОЙКИ"; implicitHeight: 38; font.pixelSize: 18; onClicked: settingsDialog.open() }
             RetroButton { text: "МЕНЮ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; visible: page !== "menu"; onClicked: { if (["board", "question", "cat"].indexOf(page) >= 0) leaveDialog.open(); else { game.menu(); page = "menu" } } }
         }
         Rectangle { x: 44; y: 72; width: 1192; height: 1; color: "#4a5b85" }
@@ -46,20 +48,17 @@ ApplicationWindow {
             Item {
                 anchors.fill: parent; visible: page === "menu"
                 Text { y: 12; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР"; color: "#e1ce85"; font.pixelSize: 22; font.letterSpacing: 2 }
-                Text { y: 62; text: "СВОЯ\nИГРА"; lineHeight: 0.82; font.pixelSize: 132; font.letterSpacing: 6; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1" }
+                Text { y: 62; text: "СВОЯ\nИГРА"; lineHeight: 0.82; font.pixelSize: 108; font.letterSpacing: 6; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1" }
                 Text { y: 310; text: "Один игрок. Шесть тем. Твой ход."; color: "#9cb6d9"; font.pixelSize: 26 }
                 TextField { id: nameInput; x: 0; y: 348; width: 390; height: 49; text: window.playerName; placeholderText: "Как тебя представить?"; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" } }
                 Column { y: 418; spacing: 12
                     Row { spacing: 12
-                        RetroButton { text: "К ТАБЛО  →"; accent: true; implicitWidth: 250; onClicked: game.startClassic(nameInput.text) }
+                        RetroButton { text: "ИГРАТЬ  →"; accent: true; implicitWidth: 250; onClicked: game.startClassic(nameInput.text) }
                         RetroButton { text: "ТРЕНИРОВКА"; implicitWidth: 250; onClicked: page = "setup" }
                     }
                     RetroButton { text: "АРХИВ РЕЗУЛЬТАТОВ"; implicitWidth: 512; onClicked: game.showHistory() }
                 }
-                Rectangle { x: 681; y: 40; width: 445; height: 478; color: "#07152c"; opacity: 0.4; border.color: "#6f819c" }
-                Text { x: 710; y: 61; text: "КАФЕДРА СЛУЧАЙНЫХ ЗНАНИЙ"; color: "#8296b2"; font.pixelSize: 19 }
-                Cat { x: 717; y: 126; width: 390; height: 410; animated: window.s.effects }
-                Text { x: 716; y: 539; text: "Не знаешь? Это повод узнать."; color: "#d3c886"; font.pixelSize: 23 }
+                Cat { x: 600; y: -20; width: 600; height: 690; animated: window.s.effects }
             }
             Item {
                 anchors.fill: parent; visible: page === "board"
@@ -77,7 +76,7 @@ ApplicationWindow {
                             width: 1168; height: 73
                             Rectangle {
                                 width: 348; height: 73
-                                color: window.hoveredRow === boardRow.rowNumber || (window.selectedCell >= 0 && Math.floor(window.selectedCell / 5) === boardRow.rowNumber) ? "#646039" : "#142b71"
+                                color: (window.selectedCell >= 0 && Math.floor(window.selectedCell / 5) === boardRow.rowNumber) ? "#646039" : "#142b71"
                                 border.color: "#566caa"
                                 Text { anchors.fill: parent; anchors.margins: 14; text: boardRow.modelData.name.toUpperCase(); color: "#e1d597"; font.pixelSize: 25; wrapMode: Text.WordWrap; verticalAlignment: Text.AlignVCenter; lineHeight: 0.9 }
                             }
@@ -99,8 +98,8 @@ ApplicationWindow {
                                         id: cellMouse; anchors.fill: parent; hoverEnabled: true
                                         enabled: !parent.modelData.used && window.selectedCell < 0
                                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                        onEntered: window.hoveredRow = boardRow.rowNumber
-                                        onExited: window.hoveredRow = -1
+
+
                                         onClicked: { window.selectedCell = parent.modelData.index; selectionTimer.restart() }
                                     }
                                 }
@@ -128,9 +127,9 @@ ApplicationWindow {
                 anchors.fill: parent; visible: page === "question"
                 Text { text: (window.s.theme || "").toUpperCase() + " / " + (window.s.cost || "") + (window.s.training ? " / ТРЕНИРОВКА" : ""); color: "#dece85"; font.pixelSize: 25 }
                 Item {
-                    id: mediaArea; x: 300; y: 42; width: 568; height: 218
+                    id: mediaArea; x: window.s.kind === "image" ? 75 : 300; y: 42; width: window.s.kind === "image" ? 1018 : 568; height: window.s.kind === "image" ? (window.s.answered ? 260 : 380) : 218
                     visible: window.s.kind !== "text"
-                    Image { anchors.fill: parent; visible: window.s.kind === "image"; source: window.s.kind === "image" ? window.s.media : ""; fillMode: Image.PreserveAspectFit; smooth: false }
+                    Image { anchors.fill: parent; visible: window.s.kind === "image"; source: window.s.kind === "image" ? window.s.media : ""; fillMode: Image.PreserveAspectFit; smooth: true }
                     Text { anchors.centerIn: parent; visible: window.s.kind === "image" && parent.children[0].status === Image.Error; text: "Изображение недоступно"; color: "#e7bb97"; font.pixelSize: 24 }
                     Canvas {
                         id: clef; anchors.centerIn: parent; width: 130; height: 202; visible: window.s.kind === "audio"
@@ -145,8 +144,8 @@ ApplicationWindow {
                     }
                 }
                 Text {
-                    x: 115; y: window.s.kind === "text" ? 88 : 272; width: 938; height: window.s.kind === "text" ? 256 : 106
-                    text: window.s.text || ""; color: "#f0e6b8"; font.family: "Tiny5"; font.pixelSize: window.s.kind === "text" ? 36 : 28
+                    x: 115; y: window.s.kind === "image" ? (window.s.answered ? 309 : 430) : window.s.kind === "text" ? 88 : 272; width: 938; height: window.s.kind === "image" ? 65 : window.s.kind === "text" ? 256 : 106
+                    text: window.s.text || ""; color: "#f0e6b8"; font.family: "Oswald"; font.pixelSize: window.s.kind === "text" ? 36 : 28
                     horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; wrapMode: Text.WordWrap; lineHeight: 0.96
                     fontSizeMode: Text.Fit; minimumPixelSize: 22
                 }
@@ -155,14 +154,14 @@ ApplicationWindow {
                     RetroButton { text: "СНАЧАЛА"; implicitHeight: 32; font.pixelSize: 18; onClicked: { audio.position = 0; audio.play() } }
                 }
                 Text { x: 115; y: 371; visible: window.s.kind === "audio" && audio.error !== MediaPlayer.NoError; text: "Не удалось воспроизвести аудио. Проверьте файл и устройство звука."; color: "#e9b398"; font.pixelSize: 20 }
-                Row { x: 150; y: 407; spacing: 12; visible: !window.s.answered
-                    TextField { id: answerInput; width: 635; height: 53; placeholderText: "Твой ответ…"; placeholderTextColor: "#a2b5cf"; color: "#eff0db"; font.family: "DejaVu Sans"; font.pixelSize: 22; selectByMouse: true; maximumLength: 250
+                Row { x: 150; y: window.s.kind === "image" ? 500 : 407; spacing: 12; visible: !window.s.answered
+                    TextField { id: answerInput; objectName: "answerInput"; width: 635; height: 53; placeholderText: "Твой ответ…"; placeholderTextColor: "#a2b5cf"; color: "#eff0db"; font.family: "DejaVu Sans"; font.pixelSize: 22; selectByMouse: true; maximumLength: 250
                         background: Rectangle { color: "#081737"; border.color: answerInput.activeFocus ? "#e5d58b" : "#6c84b2" }
                         onAccepted: if (page === "question") { game.submit(text); audio.stop() }
                     }
                     RetroButton { text: "ОТВЕТИТЬ"; accent: true; onClicked: { game.submit(answerInput.text); audio.stop() } }
                 }
-                RetroButton { x: 470; y: 482; visible: !window.s.answered; text: "НЕ ЗНАЮ / ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.submit(""); audio.stop() } }
+                RetroButton { x: 470; y: window.s.kind === "image" ? 560 : 482; implicitHeight: window.s.kind === "image" ? 36 : 52; visible: !window.s.answered; text: "НЕ ЗНАЮ / ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.revealAnswer(); audio.stop() } }
                 Column { x: 100; y: 401; width: 968; spacing: 12; visible: window.s.answered
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: window.s.correct ? "ВЕРНО!" : "ОТВЕТ: " + (window.s.primaryAnswer || ""); color: window.s.correct ? "#b7dca0" : "#f0d394"; font.pixelSize: 31; wrapMode: Text.WordWrap }
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: "Твой ответ: " + (window.s.answer || "пропуск"); color: "#a5b8d5"; font.family: "DejaVu Sans"; font.pixelSize: 17; elide: Text.ElideRight }
@@ -239,6 +238,22 @@ ApplicationWindow {
     Timer { id: selectionTimer; interval: window.s.effects ? 420 : 1; onTriggered: { if(page === "board") game.select(window.selectedCell) } }
     AudioOutput { id: audioOutput; volume: 0.7 }
     MediaPlayer { id: audio; audioOutput: audioOutput; source: page === "question" && window.s.kind === "audio" ? window.s.media : ""; onSourceChanged: { if(source.toString().length > 0) play() } }
+    AudioOutput { id: musicOutput; volume: window.s.music && !(page === "question" && window.s.kind === "audio" && !window.s.answered) ? window.s.musicVolume : 0 }
+    MediaPlayer { id: backgroundMusic; source: "qrc:/gui/assets/background.mp3"; audioOutput: musicOutput; loops: MediaPlayer.Infinite; Component.onCompleted: { if(window.s.music) play() } }
+    Connections { target: game; function onChanged() { if(window.s.music) backgroundMusic.play(); else backgroundMusic.pause() } }
+    SoundEffect { id: opening; source: "qrc:/gui/assets/open.wav"; volume: window.s.soundVolume }
+    SoundEffect { id: rightSound; source: "qrc:/gui/assets/right.wav"; volume: window.s.soundVolume }
+    SoundEffect { id: wrongSound; source: "qrc:/gui/assets/wrong.wav"; volume: window.s.soundVolume }
+    Dialog {
+        id: settingsDialog; anchors.centerIn: parent; width: 510; modal: true; title: "Настройки эфира"; standardButtons: Dialog.Close
+        Column { width: 450; spacing: 12
+            CheckBox { text: "Фоновая музыка"; checked: window.s.music; onClicked: game.setAudio(checked, window.s.sounds, window.s.musicVolume, window.s.soundVolume) }
+            Slider { width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
+            CheckBox { text: "Звуки вопросов и ответов"; checked: window.s.sounds; onClicked: game.setAudio(window.s.music,checked,window.s.musicVolume,window.s.soundVolume) }
+            Slider { width: 430; from: 0; to: 1; value: window.s.soundVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value) }
+            CheckBox { text: "Помехи старого экрана"; checked: window.s.effects; onClicked: game.setEffects(checked) }
+        }
+    }
     Dialog {
         id: leaveDialog; anchors.centerIn: parent; width: 520; modal: true; title: "Завершить сессию?"; standardButtons: Dialog.Ok | Dialog.Cancel
         Label { text: "Результаты ответов сохранятся в архиве.\nНезавершённый вопрос не учитывается."; font.family: "DejaVu Sans"; font.pixelSize: 17 }

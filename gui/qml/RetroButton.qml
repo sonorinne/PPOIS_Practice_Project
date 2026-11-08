@@ -6,7 +6,7 @@ Button {
     implicitHeight: 52
     implicitWidth: Math.max(140, label.implicitWidth + 40)
     hoverEnabled: true
-    font.family: "Tiny5"
+    font.family: "Oswald"
     font.pixelSize: 26
     contentItem: Text {
         id: label

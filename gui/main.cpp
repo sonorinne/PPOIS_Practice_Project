@@ -11,8 +11,8 @@ int main(int argc, char** argv) {
     QCoreApplication::setOrganizationName("OwnGameStudentProject");
     QCoreApplication::setApplicationName("OwnGameGui");
     QQuickStyle::setStyle("Basic");
-    QFontDatabase::addApplicationFont(":/gui/assets/Tiny5-Regular.ttf");
-    QGuiApplication::setFont(QFont("Tiny5"));
+    QFontDatabase::addApplicationFont(":/gui/assets/Oswald.ttf");
+    QGuiApplication::setFont(QFont("Oswald"));
     try {
         GameController controller;
         QQmlApplicationEngine engine;

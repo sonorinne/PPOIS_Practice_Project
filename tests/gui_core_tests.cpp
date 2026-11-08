@@ -17,7 +17,7 @@ struct BoardFixture : testing::Test {
     }
 };
 TEST_F(BoardFixture, SixCompleteThemesAndFivePrices) {
-    ASSERT_TRUE(board.NextBoard()); ASSERT_EQ(board.GetRows().size(), 6u);
+    ASSERT_TRUE(board.NextBoard()); ASSERT_EQ(board.GetRows().size(), 6u); EXPECT_EQ(board.GetCatSlots().size(),3u);
     std::set<int> themes;
     for (const auto& row : board.GetRows()) {
         themes.insert(row.categoryId); ASSERT_EQ(row.questions.size(), 5u);
@@ -62,10 +62,10 @@ TEST_F(BoardFixture, ResetRestartsSessionAndIncompletePoolsStopCleanly) {
     auto few=categories.GetAll(); few.resize(5);
     board.Reset(few,questions.GetAll()); EXPECT_FALSE(board.NextBoard());
 }
-TEST_F(BoardFixture, ExactlySixThemesNeedNoCatAndDuplicateCategoriesAreIgnored) {
-    auto six=categories.GetAll(); six.resize(6); six.push_back(six.front());
+TEST_F(BoardFixture, NineThemesReserveThreeCatsAndDuplicateCategoriesAreIgnored) {
+    auto six=categories.GetAll(); six.resize(9); six.push_back(six.front());
     board.Reset(six,questions.GetAll()); ASSERT_TRUE(board.NextBoard());
-    EXPECT_EQ(board.GetCatSlot(),-1); Complete(); EXPECT_FALSE(board.NextBoard());
+    EXPECT_EQ(board.GetCatSlots().size(),3u); Complete(); EXPECT_FALSE(board.NextBoard());
 }
 TEST(CatQuestionTest, DelegatesAliasesAndPreservesMediaSource) {
     std::string text="Question", diff="Easy", answer="Main"; std::vector<std::string> aliases{"Alias"};

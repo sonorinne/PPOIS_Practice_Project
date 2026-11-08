@@ -11,6 +11,8 @@
 GameController::GameController(QObject* parent) : QObject(parent) {
     Database db(":memory:"); // Seed content only; personal history is stored separately.
     db.Initialize(); db.LoadCategories(categoryData); db.LoadQuestions(questionData);
+    music = settings.value("music", true).toBool(); sounds = settings.value("sounds", true).toBool();
+    musicVolume = settings.value("musicVolume", 0.22).toDouble(); soundVolume = settings.value("soundVolume", 0.6).toDouble();
     effects = settings.value("effects", true).toBool();
     player = settings.value("player", "Игрок").toString();
     history = QJsonDocument::fromJson(settings.value("history").toByteArray()).array().toVariantList();
@@ -24,7 +26,7 @@ QString GameController::categoryName(int id) const { return QString::fromStdStri
 QVariantMap GameController::state() const {
     const int good = training ? trainingSession.GetStatistics().GetTotal().correct : game.GetSession().GetCorrectCount();
     const int bad = training ? trainingSession.GetStatistics().GetTotal().total - good : game.GetSession().GetIncorrectCount();
-    QVariantMap s{{"screen", screen}, {"player", player}, {"effects", effects}, {"training", training},
+    QVariantMap s{{"serial", questionSerial}, {"music", music}, {"sounds", sounds}, {"musicVolume", musicVolume}, {"soundVolume", soundVolume}, {"screen", screen}, {"player", player}, {"effects", effects}, {"training", training},
         {"score", training ? trainingScore : game.GetSession().GetScore()}, {"correctCount", good}, {"wrongCount", bad},
         {"answeredCount", good + bad}, {"round", board.GetRound()}, {"answered", answered}, {"correct", correct},
         {"catTheme", QString::fromStdString(board.GetCatTheme())}, {"error", error}, {"answer", answerText}, {"history", history}, {"mistakes", mistakes},
@@ -62,7 +64,7 @@ void GameController::startClassic(const QString& name) {
     reset(name, false);
     board.Reset(categoryData.GetAll(), questionData.GetAll());
     if (board.NextBoard()) screen = "board";
-    else { screen = "menu"; error = "Для табло нужны шесть полных тем."; }
+    else { screen = "menu"; error = "Для раунда нужны шесть полных тем табло и три темы для котов."; }
     emit changed();
 }
 void GameController::startTraining(const QString& name, const QVariantList& ids, int minCost, int maxCost, int count) {
@@ -76,7 +78,7 @@ void GameController::select(int cell) {
     if (screen != "board") return;
     try {
         pendingCell = cell;
-        if (cell == board.GetCatSlot() && !board.IsUsed(cell)) { screen = "cat"; emit changed(); return; }
+        if (board.IsCatSlot(cell) && !board.IsUsed(cell)) { screen = "cat"; emit changed(); return; }
         current = board.Select(cell); present();
     } catch (const std::exception& e) { error = QString::fromUtf8(e.what()); emit changed(); }
 }
@@ -85,7 +87,7 @@ void GameController::catStake(int stake) {
     try { current = board.Select(pendingCell, stake); present(); }
     catch (const std::exception& e) { error = QString::fromUtf8(e.what()); emit changed(); }
 }
-void GameController::present() { answered = false; error.clear(); answerText.clear(); screen = "question"; emit changed(); }
+void GameController::present() { ++questionSerial; answered = false; error.clear(); answerText.clear(); screen = "question"; emit changed(); emit questionOpened(); }
 void GameController::submit(const QString& input) {
     if (screen != "question" || answered || !current) return;
     auto text = input.trimmed().normalized(QString::NormalizationForm_C);
@@ -100,6 +102,12 @@ void GameController::submit(const QString& input) {
     } else correct = game.AnswerQuestion(current, accepted.toStdString());
     answerText = text; answered = true;
     if (!correct) mistakes << QVariantMap{{"theme", categoryName(current->GetCategoryId())}, {"text", QString::fromStdString(current->GetText())}, {"answer", QString::fromStdString(current->GetPrimaryAnswer())}};
+    emit changed(); emit responseSubmitted(correct);
+}
+void GameController::revealAnswer() {
+    if (screen != "question" || answered || !current) return;
+    if (training) { submit(""); return; }
+    correct = false; answered = true; answerText.clear();
     emit changed();
 }
 void GameController::advance() {
@@ -133,3 +141,8 @@ void GameController::reviewMistakes() {
     current = trainingSession.GetCurrentQuestion(); present();
 }
 void GameController::setEffects(bool on) { effects = on; settings.setValue("effects", on); emit changed(); }
+
+void GameController::setAudio(bool m, bool s, double mv, double sv) {
+ music=m; sounds=s; musicVolume=qBound(0.0,mv,1.0); soundVolume=qBound(0.0,sv,1.0);
+ settings.setValue("music",music); settings.setValue("sounds",sounds); settings.setValue("musicVolume",musicVolume); settings.setValue("soundVolume",soundVolume); emit changed();
+}

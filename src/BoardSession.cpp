@@ -4,7 +4,7 @@
 
 void BoardSession::Reset(const std::vector<std::shared_ptr<Category>>& categories,
                          const std::vector<std::shared_ptr<IQuestion>>& questions) {
-    deck.clear(); rows.clear(); usedCells.clear(); round = 0; catSlot = -1;
+    deck.clear(); rows.clear(); usedCells.clear(); round = 0; catSlots.clear();
     std::set<int> ids;
     for (const auto& category : categories) {
         if (!category || !ids.insert(category->GetId()).second) continue;
@@ -26,14 +26,15 @@ bool BoardSession::NextBoard() {
     deck.erase(deck.end() - 6, deck.end());
     usedCells.clear(); ++round;
     // Reserve a fresh theme for the cat; no theme in the session repeats.
-    catSlot = deck.empty() ? -1 : std::uniform_int_distribution<int>(0, 29)(random);
+    catSlots.clear();
+    while (catSlots.size() < 3) catSlots.insert(std::uniform_int_distribution<int>(0, 29)(random));
     return true;
 }
 std::shared_ptr<IQuestion> BoardSession::Select(int cell, int stake) {
     if (cell < 0 || cell >= 30 || rows.size() != 6 || IsUsed(cell))
         throw std::out_of_range("Unavailable board cell");
     std::shared_ptr<IQuestion> question;
-    if (cell == catSlot) {
+    if (IsCatSlot(cell)) {
         if (stake != 100 && stake != 500) throw std::invalid_argument("Choose 100 or 500");
         const auto& row = deck.back();
         question = std::make_shared<CatQuestion>(row.questions[stake / 100 - 1], stake);

@@ -21,6 +21,8 @@ public:
     Q_INVOKABLE void select(int cell);
     Q_INVOKABLE void catStake(int stake);
     Q_INVOKABLE void submit(const QString& answer);
+    Q_INVOKABLE void revealAnswer();
+    Q_INVOKABLE void setAudio(bool music, bool sounds, double musicVolume, double soundVolume);
     Q_INVOKABLE void advance();
     Q_INVOKABLE void nextBoard();
     Q_INVOKABLE void finish();
@@ -30,6 +32,8 @@ public:
     Q_INVOKABLE void setEffects(bool on);
 signals:
     void changed();
+    void questionOpened();
+    void responseSubmitted(bool correct);
 private:
     void reset(const QString& name, bool training);
     void present();
@@ -45,5 +49,7 @@ private:
     QString screen = "menu", player = "Игрок", error, answerText;
     QVariantList history, mistakes;
     bool training = false, answered = false, correct = false, saved = false, effects = true;
-    int pendingCell = -1, trainingScore = 0;
+    int pendingCell = -1, trainingScore = 0, questionSerial = 0;
+    bool music = true, sounds = true;
+    double musicVolume = 0.22, soundVolume = 0.6;
 };

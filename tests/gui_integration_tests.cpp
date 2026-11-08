@@ -34,8 +34,19 @@ TEST(GuiController, TrainingFiltersScoresAndReviewsMistakes) {
     EXPECT_TRUE(c.state()["mistakes"].toList().isEmpty());
     c.startTraining("", {}, 500, 100, 5); EXPECT_FALSE(c.state()["error"].toString().isEmpty());
 }
-TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
+TEST(GuiController, RevealDoesNotDeductAndTrainingCountsError) {
     QSettings().clear(); GameController c;
+    c.startClassic("Тест"); c.select(0); if(c.state()["screen"]=="cat") c.catStake(500);
+    c.revealAnswer(); EXPECT_EQ(c.state()["score"].toInt(),0); EXPECT_EQ(c.state()["wrongCount"].toInt(),0);
+    c.revealAnswer(); EXPECT_EQ(c.state()["score"].toInt(),0);
+    c.startTraining("Тест",{1},100,200,2); auto serial=c.state()["serial"].toInt();
+    c.revealAnswer(); EXPECT_EQ(c.state()["score"].toInt(),0); EXPECT_EQ(c.state()["wrongCount"].toInt(),1);
+    c.advance(); EXPECT_GT(c.state()["serial"].toInt(),serial); EXPECT_FALSE(c.state()["answered"].toBool());
+    c.setAudio(false,false,0.3,0.4); GameController restored;
+    EXPECT_FALSE(restored.state()["music"].toBool()); EXPECT_FALSE(restored.state()["sounds"].toBool());
+}
+TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
+    QSettings().clear(); GameController c; c.setAudio(false,false,0.2,0.3);
     QQmlApplicationEngine engine;
     QStringList warnings;
     QObject::connect(&engine,&QQmlEngine::warnings,[&](const QList<QQmlError>& errors){ for(const auto& e:errors) warnings << e.toString(); });
@@ -49,6 +60,7 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
         if(!directory.isEmpty()) { QDir().mkpath(directory); EXPECT_TRUE(window->grabWindow().save(directory+"/"+name+".png")); }
     };
     capture("01-menu");
+    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(1150,40)); capture("11-settings"); QTest::keyClick(window,Qt::Key_Escape);
     window->setProperty("page","setup"); capture("10-training-setup");
     QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(75,238));
     QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(200,618)); QTest::qWait(150);
@@ -60,6 +72,10 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     if(c.state()["screen"]=="cat") { capture("03-cat"); c.catStake(100); }
     EXPECT_EQ(c.state()["screen"].toString(),"question"); capture("04-question");
     c.submit(""); capture("05-answer"); c.advance(); c.finish(); capture("06-results"); c.menu();
+    c.startTraining("Тест",{1},100,200,2);
+    auto field=window->findChild<QObject*>("answerInput"); ASSERT_NE(field,nullptr);
+    field->setProperty("text","previous answer"); c.submit(""); c.advance();
+    EXPECT_TRUE(field->property("text").toString().isEmpty()); c.menu();
     for (int id : {16,17}) {
         c.startTraining("Тест",{id},100,100,1);
         ASSERT_EQ(c.state()["screen"].toString(),"question");
@@ -84,7 +100,7 @@ int main(int argc,char** argv) {
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,config.path());
     QQuickStyle::setStyle("Basic");
-    QFontDatabase::addApplicationFont(":/gui/assets/Tiny5-Regular.ttf");
-    QGuiApplication::setFont(QFont("Tiny5"));
+    QFontDatabase::addApplicationFont(":/gui/assets/Oswald.ttf");
+    QGuiApplication::setFont(QFont("Oswald"));
     testing::InitGoogleTest(&argc,argv); return RUN_ALL_TESTS();
 }
