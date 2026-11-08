@@ -7,6 +7,9 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QUrl>
+#include <QCollator>
+#include <QLocale>
+#include <algorithm>
 
 GameController::GameController(QObject* parent) : QObject(parent) {
     roundTimer.setSingleShot(true);
@@ -19,6 +22,7 @@ GameController::GameController(QObject* parent) : QObject(parent) {
     db.Initialize(); db.LoadCategories(categoryData); db.LoadQuestions(questionData);
     music = settings.value("music", true).toBool(); sounds = settings.value("sounds", true).toBool();
     musicVolume = settings.value("musicVolume", 0.22).toDouble(); soundVolume = settings.value("soundVolume", 0.6).toDouble();
+    curvature = settings.value("curvature", false).toBool();
     effects = settings.value("effects", true).toBool();
     player = settings.value("player", "Игрок").toString();
     history = QJsonDocument::fromJson(settings.value("history").toByteArray()).array().toVariantList();
@@ -26,13 +30,17 @@ GameController::GameController(QObject* parent) : QObject(parent) {
 QVariantList GameController::categories() const {
     QVariantList result;
     for (const auto& c : categoryData.GetAll()) result << QVariantMap{{"id", c->GetId()}, {"name", QString::fromStdString(c->GetName())}};
+    QCollator collator(QLocale("ru_RU")); collator.setCaseSensitivity(Qt::CaseInsensitive); collator.setIgnorePunctuation(true);
+    std::stable_sort(result.begin(),result.end(),[&](const QVariant& a,const QVariant& b) {
+        return collator.compare(a.toMap()["name"].toString(),b.toMap()["name"].toString()) < 0;
+    });
     return result;
 }
 QString GameController::categoryName(int id) const { return QString::fromStdString(categoryData.GetById(id)->GetName()); }
 QVariantMap GameController::state() const {
     const int good = training ? trainingSession.GetStatistics().GetTotal().correct : game.GetSession().GetCorrectCount();
     const int bad = training ? trainingSession.GetStatistics().GetTotal().total - good : game.GetSession().GetIncorrectCount();
-    QVariantMap s{{"serial", questionSerial}, {"music", music}, {"sounds", sounds}, {"musicVolume", musicVolume}, {"soundVolume", soundVolume}, {"screen", screen}, {"player", player}, {"effects", effects}, {"training", training},
+    QVariantMap s{{"curvature", curvature}, {"serial", questionSerial}, {"music", music}, {"sounds", sounds}, {"musicVolume", musicVolume}, {"soundVolume", soundVolume}, {"screen", screen}, {"player", player}, {"effects", effects}, {"training", training},
         {"score", training ? trainingScore : game.GetSession().GetScore()}, {"correctCount", good}, {"wrongCount", bad},
         {"answeredCount", good + bad}, {"round", board.GetRound()}, {"answered", answered}, {"correct", correct},
         {"catTheme", QString::fromStdString(board.GetCatTheme())}, {"error", error}, {"answer", answerText}, {"history", history}, {"mistakes", mistakes},
@@ -79,7 +87,7 @@ void GameController::startTraining(const QString& name, const QVariantList& ids,
     reset(name, true);
     TrainingSettings config; config.min_cost = minCost; config.max_cost = maxCost; config.question_count = count;
     for (const auto& id : ids) config.category_ids.push_back(id.toInt());
-    try { trainingSession.Generate(questionData.GetAll(), config); current = trainingSession.GetCurrentQuestion(); present(); }
+    try { trainingSession.Generate(questionData.GetAll(), config); current = trainingSession.GetCurrentQuestion(); present(); emit trainingStarted(); }
     catch (const std::exception& e) { error = QString::fromUtf8(e.what()); emit changed(); }
 }
 void GameController::select(int cell) {
@@ -141,8 +149,8 @@ void GameController::saveResult() {
     settings.setValue("history", QJsonDocument(QJsonArray::fromVariantList(history)).toJson(QJsonDocument::Compact));
     saved = true;
 }
-void GameController::finish() { roundTimer.stop(); if (screen == "board" || screen == "question" || screen == "cat" || screen == "roundEnd") saveResult(); current.reset(); screen = "results"; emit changed(); }
-void GameController::menu() { roundTimer.stop(); if (screen == "board" || screen == "question" || screen == "cat" || screen == "roundEnd") saveResult(); current.reset(); error.clear(); screen = "menu"; emit changed(); }
+void GameController::finish() { if(screen == "board" || screen == "question" || screen == "cat") emit modeFinished(); roundTimer.stop(); if (screen == "board" || screen == "question" || screen == "cat" || screen == "roundEnd") saveResult(); current.reset(); screen = "results"; emit changed(); }
+void GameController::menu() { if(screen == "board" || screen == "question" || screen == "cat") emit modeFinished(); roundTimer.stop(); if (screen == "board" || screen == "question" || screen == "cat" || screen == "roundEnd") saveResult(); current.reset(); error.clear(); screen = "menu"; emit changed(); }
 void GameController::showHistory() { screen = "history"; emit changed(); }
 void GameController::reviewMistakes() {
     if (!training || screen != "results" || trainingSession.GetMistakes().empty()) return;
@@ -155,3 +163,5 @@ void GameController::setAudio(bool m, bool s, double mv, double sv) {
  music=m; sounds=s; musicVolume=qBound(0.0,mv,1.0); soundVolume=qBound(0.0,sv,1.0);
  settings.setValue("music",music); settings.setValue("sounds",sounds); settings.setValue("musicVolume",musicVolume); settings.setValue("soundVolume",soundVolume); emit changed();
 }
+
+void GameController::setCurvature(bool on) { curvature=on; settings.setValue("curvature",on); emit changed(); }

@@ -11,7 +11,7 @@ CheckBox {
         x: control.leftPadding
         y: control.topPadding + (control.availableHeight - height) / 2
         width: 24; height: 24
-        color: control.monochrome ? (control.hovered || control.checked ? "#ffffff" : "#222222") : control.hovered ? "#fff0b0" : control.checked ? "#dfcc80" : "#132459"
+        color: control.monochrome ? (control.hovered ? "#aaaaaa" : control.checked ? "#ffffff" : "#222222") : control.hovered ? "#fff0b0" : control.checked ? "#dfcc80" : "#132459"
         border.color: control.monochrome ? "#bbbbbb" : control.hovered ? "white" : "#847b5b"
         Text { anchors.centerIn: parent; text: control.checked ? "✓" : ""; font.family: "DejaVu Sans"; font.pixelSize: 20; color: control.monochrome ? "#000000" : "#0b1638" }
     }

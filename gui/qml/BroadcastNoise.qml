@@ -19,19 +19,4 @@ Item {
         }
         Timer { interval: 100; repeat: true; running: noise.active; onTriggered: parent.requestPaint() }
     }
-    Rectangle {
-        objectName: "trackingBand"
-        width: parent.width; height: 50
-        gradient: Gradient {
-            GradientStop { position: 0; color: "transparent" }
-            GradientStop { position: 0.45; color: "#19d3e7ff" }
-            GradientStop { position: 0.52; color: "#24c7ddf4" }
-            GradientStop { position: 1; color: "transparent" }
-        }
-        SequentialAnimation on y {
-            running: noise.active; loops: Animation.Infinite
-            NumberAnimation { from: -50; to: noise.height + 50; duration: 6500 }
-            PauseAnimation { duration: 1800 }
-        }
-    }
 }
