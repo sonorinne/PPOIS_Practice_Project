@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtMultimedia
@@ -61,9 +62,14 @@ ApplicationWindow {
             ParallelAnimation { id: reveal; NumberAnimation { target: content; property: "opacity"; from: 0; to: 1; duration: window.s.effects ? 240 : 0 } NumberAnimation { target: content; property: "scale"; from: 0.975; to: 1; duration: window.s.effects ? 300 : 0; easing.type: Easing.OutCubic } }
             Item {
                 anchors.fill: parent; visible: page === "menu"
-                Text { y: 58; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР!"; color: "#e1ce85"; font.pixelSize: 22; font.letterSpacing: 2 }
-                Text { objectName: "menuTitle"; y: 90; width: 550; height: 130; text: "СВОЯ ИГРА"; font.bold: true; font.pixelSize: 88; font.letterSpacing: 1; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1"; fontSizeMode: Text.Fit; minimumPixelSize: 65 }
-                TextField { id: nameInput; x: 0; y: 265; width: 500; height: 49; text: window.playerName; placeholderText: "Как тебя представить?"; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" } }
+                Column {
+                    y: 64; spacing: -27
+                    TextMetrics { id: titleMetrics; text: "СВОЯ ИГРА"; font: titleText.font }
+                    TextMetrics { id: welcomeMetrics; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР!"; font.family: "Oswald"; font.pixelSize: 22 }
+                    Text { objectName: "menuWelcome"; text: welcomeMetrics.text; color: "#e1ce85"; font.family: "Oswald"; font.pixelSize: 22; font.letterSpacing: Math.max(0,(titleMetrics.width - welcomeMetrics.width)/(text.length-1)) }
+                    Text { id: titleText; objectName: "menuTitle"; text: "СВОЯ ИГРА"; font.bold: true; font.pixelSize: 88; font.letterSpacing: 1; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1" }
+                }
+                TextField { id: nameInput; objectName: "playerNameInput"; horizontalAlignment: TextInput.AlignHCenter; x: 0; y: 265; width: 500; height: 49; text: window.playerName; placeholderText: "Как тебя представить?"; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" } }
                 Column { y: 350; spacing: 18
                     RetroButton { objectName: "playButton"; text: "ИГРАТЬ"; accent: true; implicitWidth: 500; onClicked: game.startClassic(nameInput.text) }
                     RetroButton { objectName: "trainingButton"; text: "ТРЕНИРОВКА"; implicitWidth: 500; onClicked: page = "setup" }
@@ -167,7 +173,7 @@ ApplicationWindow {
                     }
                     RetroButton { objectName: "submitButton"; text: "ОТВЕТИТЬ"; accent: true; onClicked: { game.submit(answerInput.text); audio.stop() } }
                 }
-                RetroButton { anchors.horizontalCenter: parent.horizontalCenter; y: window.s.kind === "image" ? 560 : 482; implicitHeight: window.s.kind === "image" ? 36 : 52; visible: !window.s.answered; text: "ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.revealAnswer(); audio.stop() } }
+                RetroButton { anchors.horizontalCenter: parent.horizontalCenter; y: window.s.kind === "image" ? 560 : 482; implicitHeight: window.s.kind === "image" ? 36 : 52; visible: !window.s.answered; objectName: "revealButton"; text: "ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.revealAnswer(); audio.stop() } }
                 Column { x: 100; y: 401; width: 968; spacing: 6; visible: window.s.answered
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: window.s.correct ? "ВЕРНО!" : "ОТВЕТ: " + (window.s.primaryAnswer || ""); color: window.s.correct ? "#b7dca0" : "#f0d394"; font.pixelSize: 31; wrapMode: Text.WordWrap }
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: "Твой ответ: " + (window.s.answer || "пропуск"); color: "#a5b8d5"; font.family: "DejaVu Sans"; font.pixelSize: 17; elide: Text.ElideRight }
@@ -263,7 +269,9 @@ ApplicationWindow {
         hideSource: curvedScreen.visible
         live: curvedScreen.visible
         visible: false
-        textureSize: Qt.size(1280,800)
+        // Preserve fine borders when the curved image is resampled at Windows DPI scales.
+        textureSize: Qt.size(Math.ceil(stage.width * Screen.devicePixelRatio * 1.5), Math.ceil(stage.height * Screen.devicePixelRatio * 1.5))
+        smooth: true
     }
     ShaderEffect {
         id: curvedScreen; objectName: "curvedScreen"
@@ -308,8 +316,8 @@ ApplicationWindow {
             RetroSlider { monochrome: true; width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
             RetroCheckBox { monochrome: true; text: "Звуки вопросов и ответов"; checked: window.s.sounds; onClicked: game.setAudio(window.s.music,checked,window.s.musicVolume,window.s.soundVolume) }
             RetroSlider { monochrome: true; width: 430; from: 0; to: 1; value: window.s.soundVolume; enabled: window.s.sounds; onMoved: { game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value); if(!previewTimer.running && !previewSound.playing) previewTimer.start() } }
-            RetroCheckBox { monochrome: true; text: "Выпуклый экран (CRT)"; checked: window.s.curvature; onClicked: game.setCurvature(checked) }
-            RetroCheckBox { monochrome: true; text: "Помехи старого экрана"; checked: window.s.effects; onClicked: game.setEffects(checked) }
+            RetroCheckBox { monochrome: true; text: "Выпуклый экран"; checked: window.s.curvature; onClicked: game.setCurvature(checked) }
+            RetroCheckBox { monochrome: true; text: "Экранные помехи"; checked: window.s.effects; onClicked: game.setEffects(checked) }
         }
     }
     Timer { id: exitAfterCue; interval: window.s.sounds ? 2800 : 1; onTriggered: window.close() }

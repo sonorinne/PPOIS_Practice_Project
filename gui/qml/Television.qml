@@ -23,12 +23,26 @@ Item {
             color: "transparent"; border.color: "#374a96"; border.width: 1; opacity: 0.16
         }
     }
-    Text { x: parent.width - 250; y: 150; text: "Σ   φ\n     E = mc²\nπ      ∞"; color: "#c9b868"; font.pixelSize: 30; opacity: 0.12; lineHeight: 1.8; rotation: -10 }
+    Text { x: parent.width - 210; y: parent.height - 180; width: 185; height: 110; text: "π ≈ 3.14159\nλ = c / ν\n∞"; font.family: "DejaVu Sans"; color: "#c9b868"; font.pixelSize: 23; opacity: 0.17; lineHeight: 1.3; rotation: -6 }
     Repeater {
         model: 2
         Item { required property int index; x: index === 0 ? 5 : tv.width - 175; y: 125; width: 170; height: 560
-            Text { anchors.fill: parent; text: index === 0 ? "∫ f(x) dx\n\nH₂O  ⟶  O₂\n\nα + β = π\n\nF = ma\n\nλ = c / ν" : "Σ n²\n\nE = mc²\n\nΔt → ∞\n\nψ(x, t)\n\nπ ≈ 3.14159"; font.family: "DejaVu Sans"; font.pixelSize: 24; color: "#c7b768"; opacity: 0.18; rotation: index === 0 ? -9 : 9 }
-            Rectangle { y: 185; width: 145; height: 145; radius: 72; color: "transparent"; border.color: "#5478a2"; opacity: 0.18; rotation: 35; Rectangle { anchors.centerIn: parent; width: 90; height: 90; color: "transparent"; border.color: "#b8b476" } }
+            Text { anchors.fill: parent; text: index === 0 ? "∫ f(x) dx\n\nH₂O  ⟶  O₂\n\nα + β = π\n\nF = ma\n\nλ = c / ν" : "Σ n²\n\nE = mc²\n\nΔt → ∞\n\nψ(x, t)"; font.family: "DejaVu Sans"; font.pixelSize: 24; color: "#c7b768"; opacity: 0.18; rotation: index === 0 ? -9 : 9 }
+            Canvas {
+                y: 185; width: 155; height: 155; opacity: 0.2
+                onPaint: {
+                    let c=getContext("2d"); c.clearRect(0,0,width,height); c.lineWidth=1;
+                    c.strokeStyle="#5478a2"; c.beginPath(); c.arc(77,77,72,0,Math.PI*2); c.stroke();
+                    if(index === 0) {
+                        c.strokeStyle="#b8b476"; c.save(); c.translate(77,77); c.rotate(Math.PI/4); c.strokeRect(-43,-43,86,86); c.restore();
+                    } else {
+                        // Orbital model replaces the second square-in-circle.
+                        c.strokeStyle="#b8b476";
+                        for(let angle=0;angle<3;angle++) { c.save(); c.translate(77,77); c.rotate(angle*Math.PI/3); c.scale(1,0.38); c.beginPath(); c.arc(0,0,58,0,Math.PI*2); c.stroke(); c.restore(); }
+                        c.fillStyle="#c8c38a"; c.beginPath(); c.arc(77,77,5,0,Math.PI*2); c.fill();
+                    }
+                }
+            }
         }
     }
 }

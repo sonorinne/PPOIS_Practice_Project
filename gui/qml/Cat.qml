@@ -8,7 +8,7 @@ Item {
     onTailChanged: drawing.requestPaint()
     onEyelidChanged: drawing.requestPaint()
     SequentialAnimation on tail { running: cat.animated; loops: Animation.Infinite; NumberAnimation { to: 0.1; duration: 1000 } NumberAnimation { to: -0.1; duration: 1000 } }
-    SequentialAnimation on eyelid { running: cat.animated; loops: Animation.Infinite; PauseAnimation { duration: 3300 } NumberAnimation { to: 1; duration: 100 } NumberAnimation { to: 0; duration: 140 } }
+    SequentialAnimation on eyelid { running: cat.animated; loops: Animation.Infinite; PauseAnimation { duration: 3300 } NumberAnimation { to: 1; duration: 220; easing.type: Easing.InOutSine } NumberAnimation { to: 0; duration: 300; easing.type: Easing.InOutSine } }
     implicitWidth: 350; implicitHeight: 390
     SequentialAnimation on bob {
         running: cat.animated; loops: Animation.Infinite
@@ -45,7 +45,18 @@ Item {
             poly([173,170,204,153,230,172,234,204,203,217,178,204], "#c7d588")
             poly([120,162,128,184,120,208,112,184], "#0a1e30")
             poly([204,161,212,183,204,208,196,183], "#071a2c")
-            if(cat.eyelid > 0) { c.fillStyle="#527e80"; c.fillRect(88,153,60,65*cat.eyelid); c.fillRect(173,153,63,65*cat.eyelid) }
+            function lid(points, color, middle) {
+                c.save(); c.beginPath(); c.moveTo(points[0],points[1]);
+                for(let i=2;i<points.length;i+=2) c.lineTo(points[i],points[i+1]);
+                c.closePath(); c.clip();
+                c.fillStyle=color; c.beginPath(); c.moveTo(middle-42,145); c.lineTo(middle+42,145);
+                let level=151+78*cat.eyelid;
+                c.lineTo(middle+42,level-8); c.quadraticCurveTo(middle,level+10,middle-42,level-8); c.closePath(); c.fill(); c.restore();
+            }
+            if(cat.eyelid > 0) {
+                lid([89,174,121,155,147,170,145,204,116,218,90,201],"#7aa599",118);
+                lid([173,170,204,153,230,172,234,204,203,217,178,204],"#3c697d",204);
+            }
             poly([147,214,175,212,162,231], "#bca5a2")
             c.strokeStyle = "#192e4a"; c.lineWidth = 3; c.beginPath(); c.moveTo(161,229); c.lineTo(163,246); c.lineTo(138,239); c.moveTo(163,246); c.lineTo(187,237); c.stroke()
             c.strokeStyle = "#bdd2ae"; c.lineWidth = 2

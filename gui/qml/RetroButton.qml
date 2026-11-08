@@ -20,7 +20,7 @@ Button {
     background: Rectangle {
         color: control.monochrome ? (!control.enabled ? "#222222" : control.down ? "#cccccc" : control.hovered ? "#ffffff" : "#171717") : !control.enabled ? "#15203a" : control.down ? "#fff0b5" : control.hovered ? "#fff0b0" : control.accent ? "#dfcc80" : "#132459"
         border.color: control.monochrome ? (control.hovered || control.activeFocus ? "white" : "#777777") : control.activeFocus || control.hovered ? "white" : "#847b5b"
-        border.width: control.activeFocus ? 3 : 1
+        border.width: control.activeFocus ? 3 : 2
         Behavior on color { ColorAnimation { duration: 100 } }
         Rectangle { x: 3; y: 3; width: parent.width - 6; height: 1; color: "#ffffff"; opacity: 0.15 }
     }

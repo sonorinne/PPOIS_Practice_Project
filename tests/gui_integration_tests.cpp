@@ -96,6 +96,7 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     };
     if(qEnvironmentVariableIsSet("OWNGAME_TEST_CURVATURE")) c.setCurvature(true);
     capture("01-menu");
+    QTest::qWait(900); capture("01-menu-warm");
     auto cat=window->findChild<QObject*>("menuCat"); ASSERT_NE(cat,nullptr);
     c.setEffects(false); QSignalSpy tailMotion(cat,SIGNAL(tailChanged())); QTest::qWait(180);
     EXPECT_TRUE(cat->property("animated").toBool()); EXPECT_GT(tailMotion.count(),0); c.setEffects(true);
