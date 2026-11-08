@@ -11,22 +11,31 @@ ApplicationWindow {
     property var s: game.state
     property string page: "menu"
     property int selectedCell: -1
+    property bool flashOn: true
+    property string roundLabel: ""
+    function beginSelection(cell) { selectedCell = cell; rowFlash.restart() }
+    function playCue(cue) { stopCues(); if(window.s.sounds) cue.play() }
+    function stopCues() { rightSound.stop(); wrongSound.stop(); catSound.stop(); fanfareSound.stop(); endSound.stop(); noAnswerSound.stop() }
     property int serial: 0
     property var chosenCategories: []
     property string playerName: s.player
     property string backendScreen: "menu"
     property bool quitting: false
-    onClosing: function(close) { if (!quitting && ["board","question","cat"].indexOf(page) >= 0) { close.accepted = false; exitDialog.open() } }
+    onClosing: function(close) { if (!quitting && ["board","question","cat","roundEnd"].indexOf(page) >= 0) { close.accepted = false; exitDialog.open() } }
     Shortcut { sequence: "Return"; enabled: page === "question" && window.s.answered; onActivated: game.advance() }
     font.family: "Oswald"
     font.pixelSize: 24
     Connections {
         target: game
-        function onQuestionOpened() { if(window.s.sounds) opening.play() }
-        function onResponseSubmitted(correct) { if(window.s.sounds) { if(correct) rightSound.play(); else wrongSound.play() } }
+        function onQuestionOpened() { if(window.s.sounds && !catSound.playing) opening.play() }
+        function onRoundStarted(number) { window.roundLabel = "РАУНД " + number; roundIntro.restart(); window.playCue(fanfareSound) }
+        function onRoundFinished() { window.roundLabel = "РАУНД ЗАВЕРШЁН"; roundIntro.stop(); roundBanner.visible = true; titleEntrance.restart(); window.playCue(endSound) }
+        function onCatOpened() { window.playCue(catSound) }
+        function onAnswerRevealed() { window.playCue(noAnswerSound) }
+        function onResponseSubmitted(correct) { window.playCue(correct ? rightSound : wrongSound) }
         function onChanged() { if (game.state.serial !== window.serial) { window.serial = game.state.serial; answerInput.text = ""; reveal.restart(); Qt.callLater(function() { answerInput.forceActiveFocus() }) } if (game.state.screen !== window.backendScreen) { window.backendScreen = game.state.screen; window.page = game.state.screen } }
     }
-    onPageChanged: { reveal.restart(); answerInput.text = ""; selectedCell = -1;  audio.stop(); if(page === "question") Qt.callLater(function() { answerInput.forceActiveFocus() }) }
+    onPageChanged: { if(page === "menu") stopCues(); if(page !== "board" && page !== "roundEnd") { roundIntro.stop(); roundBanner.visible = false } reveal.restart(); answerInput.text = ""; selectedCell = -1;  audio.stop(); if(page === "question") Qt.callLater(function() { answerInput.forceActiveFocus() }) }
     Item {
         id: stage
         width: 1280; height: 800
@@ -39,8 +48,8 @@ ApplicationWindow {
         Row {
             anchors.right: parent.right; anchors.rightMargin: 44; y: 22; spacing: 16
             RetroButton { objectName: "settingsButton"; text: "НАСТРОЙКИ"; implicitHeight: 38; font.pixelSize: 18; onClicked: settingsDialog.open() }
-            RetroButton { text: "МЕНЮ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; visible: page !== "menu"; onClicked: { if (["board", "question", "cat"].indexOf(page) >= 0) leaveDialog.open(); else { game.menu(); page = "menu" } } }
-            RetroButton { objectName: "exitButton"; text: "ВЫЙТИ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; onClicked: { if (["board","question","cat"].indexOf(page) >= 0) exitDialog.open(); else { window.quitting = true; window.close() } } }
+            RetroButton { text: "МЕНЮ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; visible: page !== "menu"; onClicked: { if (["board", "question", "cat", "roundEnd"].indexOf(page) >= 0) leaveDialog.open(); else { game.menu(); page = "menu" } } }
+            RetroButton { objectName: "exitButton"; text: "ВЫЙТИ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; onClicked: { if (["board","question","cat","roundEnd"].indexOf(page) >= 0) exitDialog.open(); else { window.quitting = true; window.close() } } }
         }
         Rectangle { x: 44; y: 72; width: 1192; height: 1; color: "#4a5b85" }
 
@@ -58,11 +67,11 @@ ApplicationWindow {
                     RetroButton { objectName: "trainingButton"; text: "ТРЕНИРОВКА"; implicitWidth: 500; onClicked: page = "setup" }
                     RetroButton { text: "АРХИВ РЕЗУЛЬТАТОВ"; implicitWidth: 500; onClicked: game.showHistory() }
                 }
-                Cat { x: 600; y: -20; width: 600; height: 690; animated: window.s.effects }
+                Cat { objectName: "menuCat"; x: 600; y: -20; width: 600; height: 690; animated: window.s.effects }
             }
             Item {
                 anchors.fill: parent; visible: page === "board"
-                Text { text: "ТАБЛО / РАУНД " + window.s.round; color: "#e4d590"; font.pixelSize: 29 }
+                Text { text: "РАУНД " + window.s.round; color: "#e4d590"; font.pixelSize: 29 }
                 Text { anchors.right: parent.right; y: 5; text: "ВЫБЕРИ ТЕМУ И СТОИМОСТЬ"; color: "#91a8cc"; font.pixelSize: 21 }
                 Column {
                     y: 58; width: parent.width; spacing: 0
@@ -76,7 +85,7 @@ ApplicationWindow {
                             width: 1168; height: 73
                             Rectangle {
                                 width: 348; height: 73
-                                color: (window.selectedCell >= 0 && Math.floor(window.selectedCell / 5) === boardRow.rowNumber) ? "#646039" : "#142b71"
+                                color: (window.flashOn && window.selectedCell >= 0 && Math.floor(window.selectedCell / 5) === boardRow.rowNumber) ? "#646039" : "#142b71"
                                 border.color: "#566caa"
                                 Text { anchors.fill: parent; anchors.margins: 14; text: boardRow.modelData.name.toUpperCase(); color: "#e1d597"; font.pixelSize: 25; wrapMode: Text.WordWrap; verticalAlignment: Text.AlignVCenter; lineHeight: 0.9 }
                             }
@@ -85,22 +94,22 @@ ApplicationWindow {
                                 delegate: Rectangle {
                                     required property var modelData
                                     width: 164; height: 73
-                                    color: window.selectedCell === modelData.index ? "#e5d99c" : cellMouse.containsMouse && !modelData.used ? "#244ba1" : "#132c78"
+                                    color: window.flashOn && window.selectedCell >= 0 && Math.floor(window.selectedCell / 5) === boardRow.rowNumber ? "#646039" : cellMouse.containsMouse && !modelData.used ? "#244ba1" : "#132c78"
                                     border.color: activeFocus ? "#fff6d0" : "#566caa"
                                     border.width: activeFocus ? 3 : 1
                                     activeFocusOnTab: !modelData.used
                                     Accessible.role: Accessible.Button
                                     Accessible.name: boardRow.modelData.name + " " + modelData.cost
-                                    Keys.onReturnPressed: if (!modelData.used && window.selectedCell < 0) { window.selectedCell = modelData.index; selectionTimer.restart() }
-                                    Keys.onSpacePressed: if (!modelData.used && window.selectedCell < 0) { window.selectedCell = modelData.index; selectionTimer.restart() }
-                                    Text { anchors.centerIn: parent; text: parent.modelData.used ? "" : parent.modelData.cost; font.pixelSize: 42; color: window.selectedCell === parent.modelData.index ? "#112455" : "#e8dea8" }
+                                    Keys.onReturnPressed: if (!modelData.used && window.selectedCell < 0) { window.beginSelection(modelData.index) }
+                                    Keys.onSpacePressed: if (!modelData.used && window.selectedCell < 0) { window.beginSelection(modelData.index) }
+                                    Text { anchors.centerIn: parent; text: parent.modelData.used ? "" : parent.modelData.cost; font.pixelSize: 42; color: "#e8dea8" }
                                     MouseArea {
                                         id: cellMouse; anchors.fill: parent; hoverEnabled: true
                                         enabled: !parent.modelData.used && window.selectedCell < 0
                                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
 
 
-                                        onClicked: { window.selectedCell = parent.modelData.index; selectionTimer.restart() }
+                                        onClicked: { window.beginSelection(parent.modelData.index) }
                                     }
                                 }
                             }
@@ -108,7 +117,6 @@ ApplicationWindow {
                     }
                 }
                 Row { y: 522; spacing: 16
-                    RetroButton { text: window.s.canNextBoard ? "СЛЕДУЮЩИЕ ТЕМЫ →" : "К РЕЗУЛЬТАТАМ →"; visible: window.s.boardComplete; accent: true; onClicked: window.s.canNextBoard ? game.nextBoard() : game.finish() }
                     RetroButton { text: "ЗАВЕРШИТЬ СЕССИЮ"; onClicked: leaveDialog.open() }
                     Text { y: 13; text: "Темы в этой сессии не повторяются"; color: "#8fa6c6"; font.pixelSize: 22 }
                 }
@@ -119,8 +127,7 @@ ApplicationWindow {
                 Column { x: 510; y: 110; spacing: 26; width: 640
                     Text { text: "КОТ В МЕШКЕ"; color: "#f0df99"; font.pixelSize: 64 }
                     Text { width: 630; wrapMode: Text.WordWrap; text: "Тема: " + window.s.catTheme + "\nСтоимость выбираешь ты."; color: "#c2cee2"; font.pixelSize: 30; lineHeight: 1.1 }
-                    Row { spacing: 20; RetroButton { text: "100"; implicitWidth: 200; accent: true; onClicked: game.catStake(100) } RetroButton { text: "500"; implicitWidth: 200; onClicked: game.catStake(500) } }
-                    Text { text: "Верный ответ: +стоимость. Ошибка: −стоимость."; color: "#8ca4c8"; font.pixelSize: 21 }
+                    Row { spacing: 20; RetroButton { text: "100"; implicitWidth: 200; onClicked: game.catStake(100) } RetroButton { text: "500"; implicitWidth: 200; onClicked: game.catStake(500) } }
                 }
             }
             Item {
@@ -161,22 +168,22 @@ ApplicationWindow {
                     }
                     RetroButton { objectName: "submitButton"; text: "ОТВЕТИТЬ"; accent: true; onClicked: { game.submit(answerInput.text); audio.stop() } }
                 }
-                RetroButton { anchors.horizontalCenter: parent.horizontalCenter; y: window.s.kind === "image" ? 560 : 482; implicitHeight: window.s.kind === "image" ? 36 : 52; visible: !window.s.answered; text: "НЕ ЗНАЮ / ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.revealAnswer(); audio.stop() } }
+                RetroButton { anchors.horizontalCenter: parent.horizontalCenter; y: window.s.kind === "image" ? 560 : 482; implicitHeight: window.s.kind === "image" ? 36 : 52; visible: !window.s.answered; text: "ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.revealAnswer(); audio.stop() } }
                 Column { x: 100; y: 401; width: 968; spacing: 12; visible: window.s.answered
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: window.s.correct ? "ВЕРНО!" : "ОТВЕТ: " + (window.s.primaryAnswer || ""); color: window.s.correct ? "#b7dca0" : "#f0d394"; font.pixelSize: 31; wrapMode: Text.WordWrap }
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: "Твой ответ: " + (window.s.answer || "пропуск"); color: "#a5b8d5"; font.family: "DejaVu Sans"; font.pixelSize: 17; elide: Text.ElideRight }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: "ПРОДОЛЖИТЬ →"; accent: true; onClicked: game.advance() }
+                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: "ПРОДОЛЖИТЬ"; accent: true; onClicked: game.advance() }
                 }
             }
             Item {
                 anchors.fill: parent; visible: page === "setup"
                 Text { text: "ТРЕНИРОВКА"; color: "#eee2a6"; font.pixelSize: 56 }
                 Text { y: 65; text: "Выбери темы или оставь всё пустым для смешанного набора."; color: "#9fb6d5"; font.pixelSize: 25 }
-                CheckBox { id: randomThemes; objectName: "randomThemes"; y: 108; text: "Случайные темы / смешанная тренировка"; checked: window.chosenCategories.length === 0; palette.windowText: "#e2dcae"; font.pixelSize: 24; onClicked: { window.chosenCategories = [] } }
+                RetroCheckBox { id: randomThemes; objectName: "randomThemes"; y: 108; text: "Случайные темы / смешанная тренировка"; checked: window.chosenCategories.length === 0; palette.windowText: "#e2dcae"; font.pixelSize: 24; onClicked: { window.chosenCategories = [] } }
                 ScrollView { y: 160; width: 590; height: 390; clip: true; contentWidth: availableWidth
                     Column { width: 565; spacing: 5
                         Repeater { model: game.categories
-                            CheckBox { required property var modelData; width: 560; height: 44; text: modelData.name; font.pixelSize: 23; palette.windowText: "#e2dcae"; checked: window.chosenCategories.indexOf(modelData.id) >= 0
+                            RetroCheckBox { required property var modelData; width: 560; height: 44; text: modelData.name; font.pixelSize: 23; palette.windowText: "#e2dcae"; checked: window.chosenCategories.indexOf(modelData.id) >= 0
                                 onClicked: { let ids = window.chosenCategories.slice(); let i = ids.indexOf(modelData.id); if (checked && i < 0) ids.push(modelData.id); else if (!checked && i >= 0) ids.splice(i,1); window.chosenCategories = ids }
                                 contentItem: Text { text: parent.text; font: parent.font; color: "#e2dcae"; leftPadding: parent.indicator.width + parent.spacing; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
                             }
@@ -232,6 +239,14 @@ ApplicationWindow {
                 }
             }
         }
+        Rectangle {
+            id: roundBanner; objectName: "roundBanner"; x: 44; y: 88; width: 1192; height: 630; visible: false; color: "#081435"; z: 30
+            border.color: "#827744"; border.width: 1
+            Text { id: roundTitle; anchors.centerIn: parent; transform: Translate { id: titleShift } text: window.roundLabel; color: "#f4e4a0"; font.pixelSize: 90; font.bold: true }
+            MouseArea { anchors.fill: parent }
+            ParallelAnimation { id: titleEntrance; NumberAnimation { target: titleShift; property: "y"; from: -100; to: 0; duration: 420; easing.type: Easing.OutBack } NumberAnimation { target: roundTitle; property: "opacity"; from: 0; to: 1; duration: 260 } }
+            SequentialAnimation { id: roundIntro; PropertyAction { target: roundBanner; property: "visible"; value: true } ScriptAction { script: titleEntrance.restart() } PauseAnimation { duration: 2200 } PropertyAction { target: roundBanner; property: "visible"; value: false } }
+        }
         Text { x: 56; y: 698; width: 1168; text: window.s.error; color: "#f3b2a1"; font.pixelSize: 20; elide: Text.ElideRight }
         Rectangle { x: 44; y: 730; width: 1192; height: 1; color: "#4a5b85" }
         Row { x: 56; y: 751; spacing: 40
@@ -241,32 +256,50 @@ ApplicationWindow {
         }
         Text { anchors.right: parent.right; anchors.rightMargin: 56; y: 754; text: page === "question" && window.s.training ? "ВОПРОС " + window.s.number + " / " + window.s.total : page === "board" ? "ОТВЕЧЕНО  " + window.s.answeredCount : "ЛИЧНЫЙ ЭФИР · 01"; color: "#839dc3"; font.pixelSize: 21 }
     }
-    Timer { id: selectionTimer; interval: window.s.effects ? 420 : 1; onTriggered: { if(page === "board") game.select(window.selectedCell) } }
+    SequentialAnimation {
+        id: rowFlash
+        PropertyAction { target: window; property: "flashOn"; value: true }
+        PauseAnimation { duration: window.s.effects ? 150 : 0 }
+        PropertyAction { target: window; property: "flashOn"; value: false }
+        PauseAnimation { duration: window.s.effects ? 120 : 0 }
+        PropertyAction { target: window; property: "flashOn"; value: true }
+        ScriptAction { script: selectionTimer.restart() }
+    }
+    Timer { id: selectionTimer; interval: window.s.effects ? 130 : 1; onTriggered: { if(page === "board") game.select(window.selectedCell) } }
     AudioOutput { id: audioOutput; volume: 0.7 }
     MediaPlayer { id: audio; audioOutput: audioOutput; source: page === "question" && window.s.kind === "audio" ? window.s.media : ""; onSourceChanged: { if(source.toString().length > 0) play() } }
     AudioOutput { id: musicOutput; volume: window.s.music && !(page === "question" && window.s.kind === "audio" && !window.s.answered) ? window.s.musicVolume : 0 }
     MediaPlayer { id: backgroundMusic; source: "qrc:/gui/assets/background.mp3"; audioOutput: musicOutput; loops: MediaPlayer.Infinite; Component.onCompleted: { if(window.s.music) play() } }
-    Connections { target: game; function onChanged() { if(window.s.music && backgroundMusic.playbackState !== MediaPlayer.PlayingState) backgroundMusic.play(); else if(!window.s.music && backgroundMusic.playbackState === MediaPlayer.PlayingState) backgroundMusic.pause() } }
+    Connections { target: game; function onChanged() { if(!window.s.sounds) { window.stopCues(); opening.stop(); previewSound.stop() } if(window.s.music && backgroundMusic.playbackState !== MediaPlayer.PlayingState) backgroundMusic.play(); else if(!window.s.music && backgroundMusic.playbackState === MediaPlayer.PlayingState) backgroundMusic.pause() } }
+    SoundEffect { id: catSound; source: "qrc:/gui/assets/cat.wav"; volume: window.s.soundVolume }
+    SoundEffect { id: fanfareSound; source: "qrc:/gui/assets/fanfare.wav"; volume: window.s.soundVolume }
+    SoundEffect { id: endSound; source: "qrc:/gui/assets/roundEnd.wav"; volume: window.s.soundVolume }
+    SoundEffect { id: noAnswerSound; source: "qrc:/gui/assets/noanswer.wav"; volume: window.s.soundVolume }
+    SoundEffect { id: previewSound; source: "qrc:/gui/assets/right.wav"; volume: window.s.soundVolume }
+    Timer { id: previewTimer; interval: 150; onTriggered: { if(window.s.sounds && !previewSound.playing) previewSound.play() } }
     SoundEffect { id: opening; source: "qrc:/gui/assets/open.wav"; volume: window.s.soundVolume }
     SoundEffect { id: rightSound; source: "qrc:/gui/assets/right.wav"; volume: window.s.soundVolume }
     SoundEffect { id: wrongSound; source: "qrc:/gui/assets/wrong.wav"; volume: window.s.soundVolume }
     Dialog {
         id: settingsDialog; anchors.centerIn: parent; width: 510; modal: true; title: "Настройки эфира"; standardButtons: Dialog.Close
+        footer: DialogButtonBox { standardButtons: settingsDialog.standardButtons; delegate: RetroButton { } }
         Column { width: 450; spacing: 12
-            CheckBox { text: "Фоновая музыка"; checked: window.s.music; onClicked: game.setAudio(checked, window.s.sounds, window.s.musicVolume, window.s.soundVolume) }
-            Slider { width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
-            CheckBox { text: "Звуки вопросов и ответов"; checked: window.s.sounds; onClicked: game.setAudio(window.s.music,checked,window.s.musicVolume,window.s.soundVolume) }
-            Slider { width: 430; from: 0; to: 1; value: window.s.soundVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value) }
-            CheckBox { text: "Помехи старого экрана"; checked: window.s.effects; onClicked: game.setEffects(checked) }
+            RetroCheckBox { text: "Фоновая музыка"; checked: window.s.music; onClicked: game.setAudio(checked, window.s.sounds, window.s.musicVolume, window.s.soundVolume) }
+            RetroSlider { width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
+            RetroCheckBox { text: "Звуки вопросов и ответов"; checked: window.s.sounds; onClicked: game.setAudio(window.s.music,checked,window.s.musicVolume,window.s.soundVolume) }
+            RetroSlider { width: 430; from: 0; to: 1; value: window.s.soundVolume; enabled: window.s.sounds; onMoved: { game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value); if(!previewTimer.running && !previewSound.playing) previewTimer.start() } }
+            RetroCheckBox { text: "Помехи старого экрана"; checked: window.s.effects; onClicked: game.setEffects(checked) }
         }
     }
     Dialog {
         id: exitDialog; anchors.centerIn: parent; width: 510; modal: true; title: "Выйти из приложения?"; standardButtons: Dialog.Yes | Dialog.No
+        footer: DialogButtonBox { standardButtons: exitDialog.standardButtons; delegate: RetroButton { } }
         Label { text: "Отвеченные вопросы сохранятся в архиве."; font.pixelSize: 22 }
         onAccepted: { selectionTimer.stop(); game.finish(); window.quitting = true; window.close() }
     }
     Dialog {
         id: leaveDialog; anchors.centerIn: parent; width: 520; modal: true; title: "Завершить сессию?"; standardButtons: Dialog.Ok | Dialog.Cancel
+        footer: DialogButtonBox { standardButtons: leaveDialog.standardButtons; delegate: RetroButton { } }
         Label { text: "Результаты ответов сохранятся в архиве.\nНезавершённый вопрос не учитывается."; font.family: "DejaVu Sans"; font.pixelSize: 17 }
         onAccepted: { selectionTimer.stop(); game.finish() }
     }

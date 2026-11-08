@@ -3,6 +3,7 @@
 #include <QVariantMap>
 #include <QVariantList>
 #include <QSettings>
+#include <QTimer>
 #include "BoardSession.h"
 #include "Database.h"
 #include "Game.h"
@@ -33,6 +34,10 @@ public:
 signals:
     void changed();
     void questionOpened();
+    void roundStarted(int number);
+    void roundFinished();
+    void catOpened();
+    void answerRevealed();
     void responseSubmitted(bool correct);
 private:
     void reset(const QString& name, bool training);
@@ -50,6 +55,8 @@ private:
     QVariantList history, mistakes;
     bool training = false, answered = false, correct = false, saved = false, effects = true;
     int pendingCell = -1, trainingScore = 0, questionSerial = 0;
+    QTimer roundTimer;
+    bool revealing = false;
     bool music = true, sounds = true;
     double musicVolume = 0.22, soundVolume = 0.6;
 };

@@ -6,6 +6,7 @@
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QTest>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QFontDatabase>
 #include <QDir>
@@ -46,6 +47,23 @@ TEST(GuiController, RevealDoesNotDeductAndTrainingCountsError) {
     c.setAudio(false,false,0.3,0.4); GameController restored;
     EXPECT_FALSE(restored.state()["music"].toBool()); EXPECT_FALSE(restored.state()["sounds"].toBool());
 }
+TEST(GuiController, CompletedRoundAdvancesAutomaticallyAndRevealHasOwnCue) {
+    QSettings().clear(); GameController c;
+    QSignalSpy started(&c,&GameController::roundStarted), ended(&c,&GameController::roundFinished);
+    QSignalSpy revealed(&c,&GameController::answerRevealed), wrong(&c,&GameController::responseSubmitted);
+    c.startClassic("Тест"); ASSERT_EQ(started.count(),1);
+    for(int cell=0;cell<30;++cell) {
+        c.select(cell); if(c.state()["screen"]=="cat") c.catStake(100);
+        c.revealAnswer(); c.advance();
+    }
+    EXPECT_EQ(revealed.count(),30); EXPECT_EQ(wrong.count(),0); EXPECT_EQ(ended.count(),1);
+    EXPECT_EQ(c.state()["screen"].toString(),"roundEnd");
+    QTest::qWait(3000);
+    EXPECT_EQ(c.state()["round"].toInt(),2); EXPECT_EQ(c.state()["screen"].toString(),"board");
+    EXPECT_EQ(started.count(),2);
+    c.startTraining("Тест",{1},100,100,1); c.revealAnswer();
+    EXPECT_EQ(wrong.count(),0); EXPECT_EQ(c.state()["wrongCount"].toInt(),1);
+}
 TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     QSettings().clear(); GameController c; c.setAudio(false,false,0.2,0.3);
     QQmlApplicationEngine engine;
@@ -72,7 +90,7 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     ASSERT_EQ(c.state()["screen"].toString(),"question");
     EXPECT_EQ(c.state()["theme"].toString(),QString::fromUtf8("Эдем")); c.menu();
     click("playButton");
-    ASSERT_EQ(c.state()["screen"].toString(),"board"); capture("02-board");
+    ASSERT_EQ(c.state()["screen"].toString(),"board"); capture("02-board"); QTest::qWait(2300);
     QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(486,194)); QTest::qWait(650);
     if(c.state()["screen"]=="cat") { capture("03-cat"); c.catStake(100); }
     EXPECT_EQ(c.state()["screen"].toString(),"question"); capture("04-question");

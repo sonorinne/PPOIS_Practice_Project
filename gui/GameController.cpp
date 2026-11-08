@@ -9,6 +9,12 @@
 #include <QUrl>
 
 GameController::GameController(QObject* parent) : QObject(parent) {
+    roundTimer.setSingleShot(true);
+    connect(&roundTimer, &QTimer::timeout, this, [this] {
+        if(screen != "roundEnd") return;
+        if(board.NextBoard()) { screen = "board"; emit changed(); emit roundStarted(board.GetRound()); }
+        else finish();
+    });
     Database db(":memory:"); // Seed content only; personal history is stored separately.
     db.Initialize(); db.LoadCategories(categoryData); db.LoadQuestions(questionData);
     music = settings.value("music", true).toBool(); sounds = settings.value("sounds", true).toBool();
@@ -55,6 +61,7 @@ QVariantMap GameController::state() const {
     return s;
 }
 void GameController::reset(const QString& name, bool isTraining) {
+    roundTimer.stop();
     player = name.trimmed().isEmpty() ? "Игрок" : name.trimmed().left(24);
     settings.setValue("player", player);
     training = isTraining; game = Game(); trainingSession = TrainingSession(); current.reset();
@@ -66,6 +73,7 @@ void GameController::startClassic(const QString& name) {
     if (board.NextBoard()) screen = "board";
     else { screen = "menu"; error = "Для раунда нужны шесть полных тем табло и три темы для котов."; }
     emit changed();
+    if(screen == "board") emit roundStarted(board.GetRound());
 }
 void GameController::startTraining(const QString& name, const QVariantList& ids, int minCost, int maxCost, int count) {
     reset(name, true);
@@ -78,7 +86,7 @@ void GameController::select(int cell) {
     if (screen != "board") return;
     try {
         pendingCell = cell;
-        if (board.IsCatSlot(cell) && !board.IsUsed(cell)) { screen = "cat"; emit changed(); return; }
+        if (board.IsCatSlot(cell) && !board.IsUsed(cell)) { screen = "cat"; emit changed(); emit catOpened(); return; }
         current = board.Select(cell); present();
     } catch (const std::exception& e) { error = QString::fromUtf8(e.what()); emit changed(); }
 }
@@ -102,13 +110,13 @@ void GameController::submit(const QString& input) {
     } else correct = game.AnswerQuestion(current, accepted.toStdString());
     answerText = text; answered = true;
     if (!correct) mistakes << QVariantMap{{"theme", categoryName(current->GetCategoryId())}, {"text", QString::fromStdString(current->GetText())}, {"answer", QString::fromStdString(current->GetPrimaryAnswer())}};
-    emit changed(); emit responseSubmitted(correct);
+    emit changed(); if(!revealing) emit responseSubmitted(correct);
 }
 void GameController::revealAnswer() {
     if (screen != "question" || answered || !current) return;
-    if (training) { submit(""); return; }
+    if (training) { revealing = true; submit(""); revealing = false; emit answerRevealed(); return; }
     correct = false; answered = true; answerText.clear();
-    emit changed();
+    emit changed(); emit answerRevealed();
 }
 void GameController::advance() {
     if (screen != "question" || !answered) return;
@@ -116,7 +124,8 @@ void GameController::advance() {
     if (training) {
         if (trainingSession.IsFinished()) { finish(); return; }
         current = trainingSession.GetCurrentQuestion(); present();
-    } else { screen = "board"; emit changed(); }
+    } else if(board.IsComplete()) { screen = "roundEnd"; emit changed(); emit roundFinished(); roundTimer.start(2800); }
+    else { screen = "board"; emit changed(); }
 }
 void GameController::nextBoard() {
     if (screen != "board" || !board.IsComplete()) return;
@@ -127,13 +136,13 @@ void GameController::saveResult() {
     if (saved) return;
     auto s = state();
     history.prepend(QVariantMap{{"date", QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm")}, {"player", player},
-        {"mode", training ? "Тренировка" : "Табло"}, {"score", s["score"]}, {"correct", s["correctCount"]}, {"total", s["answeredCount"]}, {"mistakes", mistakes}});
+        {"mode", training ? "Тренировка" : "Игра"}, {"score", s["score"]}, {"correct", s["correctCount"]}, {"total", s["answeredCount"]}, {"mistakes", mistakes}});
     while (history.size() > 50) history.removeLast();
     settings.setValue("history", QJsonDocument(QJsonArray::fromVariantList(history)).toJson(QJsonDocument::Compact));
     saved = true;
 }
-void GameController::finish() { if (screen == "board" || screen == "question" || screen == "cat") saveResult(); current.reset(); screen = "results"; emit changed(); }
-void GameController::menu() { if (screen == "board" || screen == "question" || screen == "cat") saveResult(); current.reset(); error.clear(); screen = "menu"; emit changed(); }
+void GameController::finish() { roundTimer.stop(); if (screen == "board" || screen == "question" || screen == "cat" || screen == "roundEnd") saveResult(); current.reset(); screen = "results"; emit changed(); }
+void GameController::menu() { roundTimer.stop(); if (screen == "board" || screen == "question" || screen == "cat" || screen == "roundEnd") saveResult(); current.reset(); error.clear(); screen = "menu"; emit changed(); }
 void GameController::showHistory() { screen = "history"; emit changed(); }
 void GameController::reviewMistakes() {
     if (!training || screen != "results" || trainingSession.GetMistakes().empty()) return;
