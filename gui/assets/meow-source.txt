@@ -1,0 +1,5 @@
+Meow of a Siamese cat - freemaster2
+Author: freemaster2. License: CC0 (Public Domain Dedication).
+https://commons.wikimedia.org/wiki/File:Meow_of_a_Siamese_cat_-_freemaster2.wav
+https://creativecommons.org/publicdomain/zero/1.0/
+Converted to mono 44100 Hz PCM, leading silence removed, excerpt up to 3 seconds.

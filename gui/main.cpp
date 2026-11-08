@@ -27,8 +27,9 @@ int main(int argc, char** argv) {
         int iconArg = app.arguments().indexOf("--export-icon");
         if (iconArg >= 0 && iconArg + 1 < app.arguments().size()) {
             const auto path = app.arguments().at(iconArg + 1);
+            engine.rootObjects().front()->setProperty("exportingIcon", true);
             QTimer::singleShot(350, &app, [&engine, &app, path] {
-                auto cat = engine.rootObjects().front()->findChild<QQuickItem*>("menuCat");
+                auto cat = engine.rootObjects().front()->findChild<QQuickItem*>("exportIcon");
                 if (!cat) { app.exit(2); return; }
                 auto image = cat->grabToImage(QSize(512,512));
                 if (!image) { app.exit(3); return; }

@@ -31,22 +31,4 @@ Item {
             Rectangle { y: 185; width: 145; height: 145; radius: 72; color: "transparent"; border.color: "#5478a2"; opacity: 0.18; rotation: 35; Rectangle { anchors.centerIn: parent; width: 90; height: 90; color: "transparent"; border.color: "#b8b476" } }
         }
     }
-    Canvas {
-        anchors.fill: parent; visible: tv.effects; opacity: 0.04
-        onPaint: {
-            let c = getContext("2d"); c.clearRect(0, 0, width, height)
-            c.fillStyle = "#000000"
-            for (let y = 0; y < height; y += 4) c.fillRect(0, y, width, 1)
-
-        }
-        Timer { interval: 130; repeat: true; running: tv.effects; onTriggered: parent.requestPaint() }
-    }
-    Rectangle {
-        visible: tv.effects; width: parent.width; height: 25; opacity: 0.035; color: "#c6e5fa"
-        SequentialAnimation on y {
-            loops: Animation.Infinite; running: tv.effects
-            NumberAnimation { from: -50; to: tv.height + 50; duration: 8200 }
-            PauseAnimation { duration: 4500 }
-        }
-    }
 }

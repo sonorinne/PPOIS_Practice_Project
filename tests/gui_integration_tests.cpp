@@ -90,8 +90,8 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     ASSERT_EQ(c.state()["screen"].toString(),"question");
     EXPECT_EQ(c.state()["theme"].toString(),QString::fromUtf8("Эдем")); c.menu();
     click("playButton");
-    ASSERT_EQ(c.state()["screen"].toString(),"board"); capture("02-board"); QTest::qWait(2300);
-    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(486,194)); QTest::qWait(650);
+    ASSERT_EQ(c.state()["screen"].toString(),"board"); QTest::qWait(2300); capture("02-board");
+    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(486,232)); QTest::qWait(650);
     if(c.state()["screen"]=="cat") { capture("03-cat"); c.catStake(100); }
     EXPECT_EQ(c.state()["screen"].toString(),"question"); capture("04-question");
     c.submit(""); capture("05-answer"); c.advance(); c.finish(); capture("06-results"); c.menu();

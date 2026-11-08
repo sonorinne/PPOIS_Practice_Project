@@ -55,8 +55,8 @@ if(OWNGAME_BUILD_GUI)
     qt_add_executable(OwnGameGui gui/main.cpp gui/GameController.cpp gui/GameController.h)
     target_link_libraries(OwnGameGui PRIVATE OwnGameCore Qt6::Quick Qt6::QuickControls2 Qt6::Multimedia)
     qt_add_resources(OwnGameGui "gui_resources" PREFIX "/" FILES
-        gui/qml/Main.qml gui/qml/RetroButton.qml gui/qml/RetroSlider.qml gui/qml/RetroCheckBox.qml gui/qml/Television.qml gui/qml/Cat.qml
-        gui/assets/background.mp3 gui/assets/cat.wav gui/assets/fanfare.wav gui/assets/noanswer.wav gui/assets/roundEnd.wav gui/assets/open.wav gui/assets/right.wav gui/assets/wrong.wav gui/assets/cat.png gui/assets/Oswald.ttf gui/assets/OFL-Oswald.txt)
+        gui/qml/Main.qml gui/qml/RetroButton.qml gui/qml/RetroSlider.qml gui/qml/BroadcastNoise.qml gui/qml/IconArtwork.qml gui/qml/RetroCheckBox.qml gui/qml/Television.qml gui/qml/Cat.qml
+        gui/assets/background.mp3 gui/assets/cat.wav gui/assets/fanfare.wav gui/assets/noanswer.wav gui/assets/roundEnd.wav gui/assets/meow.wav gui/assets/open.wav gui/assets/right.wav gui/assets/wrong.wav gui/assets/cat.png gui/assets/Oswald.ttf gui/assets/OFL-Oswald.txt)
     add_custom_command(TARGET OwnGameGui POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:OwnGameGui>/assets")
 endif()
@@ -67,8 +67,8 @@ if(OWNGAME_BUILD_GUI)
     target_include_directories(GuiTests PRIVATE gui)
     target_link_libraries(GuiTests PRIVATE OwnGameCore GTest::gtest Qt6::Quick Qt6::QuickControls2 Qt6::Multimedia Qt6::Test)
     qt_add_resources(GuiTests "test_gui_resources" PREFIX "/" FILES
-        gui/qml/Main.qml gui/qml/RetroButton.qml gui/qml/RetroSlider.qml gui/qml/RetroCheckBox.qml gui/qml/Television.qml gui/qml/Cat.qml
-        gui/assets/background.mp3 gui/assets/cat.wav gui/assets/fanfare.wav gui/assets/noanswer.wav gui/assets/roundEnd.wav gui/assets/open.wav gui/assets/right.wav gui/assets/wrong.wav gui/assets/cat.png gui/assets/Oswald.ttf)
+        gui/qml/Main.qml gui/qml/RetroButton.qml gui/qml/RetroSlider.qml gui/qml/BroadcastNoise.qml gui/qml/IconArtwork.qml gui/qml/RetroCheckBox.qml gui/qml/Television.qml gui/qml/Cat.qml
+        gui/assets/background.mp3 gui/assets/cat.wav gui/assets/fanfare.wav gui/assets/noanswer.wav gui/assets/roundEnd.wav gui/assets/meow.wav gui/assets/open.wav gui/assets/right.wav gui/assets/wrong.wav gui/assets/cat.png gui/assets/Oswald.ttf)
     add_custom_command(TARGET GuiTests POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:GuiTests>/assets")
     add_test(NAME GuiIntegration COMMAND GuiTests)

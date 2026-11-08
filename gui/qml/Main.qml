@@ -21,6 +21,7 @@ ApplicationWindow {
     property string playerName: s.player
     property string backendScreen: "menu"
     property bool quitting: false
+    property bool exportingIcon: false
     onClosing: function(close) { if (!quitting && ["board","question","cat","roundEnd"].indexOf(page) >= 0) { close.accepted = false; exitDialog.open() } }
     Shortcut { sequence: "Return"; enabled: page === "question" && window.s.answered; onActivated: game.advance() }
     font.family: "Oswald"
@@ -59,7 +60,7 @@ ApplicationWindow {
             ParallelAnimation { id: reveal; NumberAnimation { target: content; property: "opacity"; from: 0; to: 1; duration: window.s.effects ? 240 : 0 } NumberAnimation { target: content; property: "scale"; from: 0.975; to: 1; duration: window.s.effects ? 300 : 0; easing.type: Easing.OutCubic } }
             Item {
                 anchors.fill: parent; visible: page === "menu"
-                Text { y: 36; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР"; color: "#e1ce85"; font.pixelSize: 22; font.letterSpacing: 2 }
+                Text { y: 58; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР!"; color: "#e1ce85"; font.pixelSize: 22; font.letterSpacing: 2 }
                 Text { objectName: "menuTitle"; y: 90; width: 550; height: 130; text: "СВОЯ ИГРА"; font.bold: true; font.pixelSize: 88; font.letterSpacing: 1; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1"; fontSizeMode: Text.Fit; minimumPixelSize: 65 }
                 TextField { id: nameInput; x: 0; y: 265; width: 500; height: 49; text: window.playerName; placeholderText: "Как тебя представить?"; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" } }
                 Column { y: 350; spacing: 18
@@ -71,10 +72,9 @@ ApplicationWindow {
             }
             Item {
                 anchors.fill: parent; visible: page === "board"
-                Text { text: "РАУНД " + window.s.round; color: "#e4d590"; font.pixelSize: 29 }
-                Text { anchors.right: parent.right; y: 5; text: "ВЫБЕРИ ТЕМУ И СТОИМОСТЬ"; color: "#91a8cc"; font.pixelSize: 21 }
+                Text { anchors.horizontalCenter: parent.horizontalCenter; y: 2; text: "РАУНД " + window.s.round; color: "#e4d590"; font.pixelSize: 48; font.bold: true }
                 Column {
-                    y: 58; width: parent.width; spacing: 0
+                    y: 96; width: parent.width; spacing: 0
                     Repeater {
                         model: window.s.rows
                         delegate: Row {
@@ -117,8 +117,6 @@ ApplicationWindow {
                     }
                 }
                 Row { y: 522; spacing: 16
-                    RetroButton { text: "ЗАВЕРШИТЬ СЕССИЮ"; onClicked: leaveDialog.open() }
-                    Text { y: 13; text: "Темы в этой сессии не повторяются"; color: "#8fa6c6"; font.pixelSize: 22 }
                 }
             }
             Item {
@@ -247,6 +245,8 @@ ApplicationWindow {
             ParallelAnimation { id: titleEntrance; NumberAnimation { target: titleShift; property: "y"; from: -100; to: 0; duration: 420; easing.type: Easing.OutBack } NumberAnimation { target: roundTitle; property: "opacity"; from: 0; to: 1; duration: 260 } }
             SequentialAnimation { id: roundIntro; PropertyAction { target: roundBanner; property: "visible"; value: true } ScriptAction { script: titleEntrance.restart() } PauseAnimation { duration: 2200 } PropertyAction { target: roundBanner; property: "visible"; value: false } }
         }
+        BroadcastNoise { anchors.fill: parent; active: window.s.effects; z: 40 }
+        IconArtwork { objectName: "exportIcon"; width: 512; height: 512; visible: window.exportingIcon; z: 100 }
         Text { x: 56; y: 698; width: 1168; text: window.s.error; color: "#f3b2a1"; font.pixelSize: 20; elide: Text.ElideRight }
         Rectangle { x: 44; y: 730; width: 1192; height: 1; color: "#4a5b85" }
         Row { x: 56; y: 751; spacing: 40
@@ -275,31 +275,40 @@ ApplicationWindow {
     SoundEffect { id: fanfareSound; source: "qrc:/gui/assets/fanfare.wav"; volume: window.s.soundVolume }
     SoundEffect { id: endSound; source: "qrc:/gui/assets/roundEnd.wav"; volume: window.s.soundVolume }
     SoundEffect { id: noAnswerSound; source: "qrc:/gui/assets/noanswer.wav"; volume: window.s.soundVolume }
-    SoundEffect { id: previewSound; source: "qrc:/gui/assets/right.wav"; volume: window.s.soundVolume }
+    SoundEffect { id: previewSound; source: "qrc:/gui/assets/meow.wav"; volume: window.s.soundVolume }
     Timer { id: previewTimer; interval: 150; onTriggered: { if(window.s.sounds && !previewSound.playing) previewSound.play() } }
     SoundEffect { id: opening; source: "qrc:/gui/assets/open.wav"; volume: window.s.soundVolume }
     SoundEffect { id: rightSound; source: "qrc:/gui/assets/right.wav"; volume: window.s.soundVolume }
     SoundEffect { id: wrongSound; source: "qrc:/gui/assets/wrong.wav"; volume: window.s.soundVolume }
     Dialog {
         id: settingsDialog; anchors.centerIn: parent; width: 510; modal: true; title: "Настройки эфира"; standardButtons: Dialog.Close
-        footer: DialogButtonBox { standardButtons: settingsDialog.standardButtons; delegate: RetroButton { } }
+        palette.window: "#101010"; palette.windowText: "#ffffff"; palette.text: "#ffffff"; palette.buttonText: "#ffffff"; palette.button: "#222222"; palette.highlight: "#ffffff"; palette.highlightedText: "#000000"
+        background: Rectangle { color: "#101010"; border.color: "#888888" }
+        header: Label { text: settingsDialog.title; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
+        footer: DialogButtonBox { standardButtons: settingsDialog.standardButtons; background: Rectangle { color: "#101010" } delegate: RetroButton { monochrome: true } }
         Column { width: 450; spacing: 12
-            RetroCheckBox { text: "Фоновая музыка"; checked: window.s.music; onClicked: game.setAudio(checked, window.s.sounds, window.s.musicVolume, window.s.soundVolume) }
-            RetroSlider { width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
-            RetroCheckBox { text: "Звуки вопросов и ответов"; checked: window.s.sounds; onClicked: game.setAudio(window.s.music,checked,window.s.musicVolume,window.s.soundVolume) }
-            RetroSlider { width: 430; from: 0; to: 1; value: window.s.soundVolume; enabled: window.s.sounds; onMoved: { game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value); if(!previewTimer.running && !previewSound.playing) previewTimer.start() } }
-            RetroCheckBox { text: "Помехи старого экрана"; checked: window.s.effects; onClicked: game.setEffects(checked) }
+            RetroCheckBox { monochrome: true; text: "Фоновая музыка"; checked: window.s.music; onClicked: game.setAudio(checked, window.s.sounds, window.s.musicVolume, window.s.soundVolume) }
+            RetroSlider { monochrome: true; width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
+            RetroCheckBox { monochrome: true; text: "Звуки вопросов и ответов"; checked: window.s.sounds; onClicked: game.setAudio(window.s.music,checked,window.s.musicVolume,window.s.soundVolume) }
+            RetroSlider { monochrome: true; width: 430; from: 0; to: 1; value: window.s.soundVolume; enabled: window.s.sounds; onMoved: { game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value); if(!previewTimer.running && !previewSound.playing) previewTimer.start() } }
+            RetroCheckBox { monochrome: true; text: "Помехи старого экрана"; checked: window.s.effects; onClicked: game.setEffects(checked) }
         }
     }
     Dialog {
         id: exitDialog; anchors.centerIn: parent; width: 510; modal: true; title: "Выйти из приложения?"; standardButtons: Dialog.Yes | Dialog.No
-        footer: DialogButtonBox { standardButtons: exitDialog.standardButtons; delegate: RetroButton { } }
+        palette.window: "#101010"; palette.windowText: "#ffffff"; palette.text: "#ffffff"; palette.buttonText: "#ffffff"; palette.button: "#222222"; palette.highlight: "#ffffff"; palette.highlightedText: "#000000"
+        background: Rectangle { color: "#101010"; border.color: "#888888" }
+        header: Label { text: exitDialog.title; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
+        footer: DialogButtonBox { standardButtons: exitDialog.standardButtons; background: Rectangle { color: "#101010" } delegate: RetroButton { monochrome: true } }
         Label { text: "Отвеченные вопросы сохранятся в архиве."; font.pixelSize: 22 }
         onAccepted: { selectionTimer.stop(); game.finish(); window.quitting = true; window.close() }
     }
     Dialog {
         id: leaveDialog; anchors.centerIn: parent; width: 520; modal: true; title: "Завершить сессию?"; standardButtons: Dialog.Ok | Dialog.Cancel
-        footer: DialogButtonBox { standardButtons: leaveDialog.standardButtons; delegate: RetroButton { } }
+        palette.window: "#101010"; palette.windowText: "#ffffff"; palette.text: "#ffffff"; palette.buttonText: "#ffffff"; palette.button: "#222222"; palette.highlight: "#ffffff"; palette.highlightedText: "#000000"
+        background: Rectangle { color: "#101010"; border.color: "#888888" }
+        header: Label { text: leaveDialog.title; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
+        footer: DialogButtonBox { standardButtons: leaveDialog.standardButtons; background: Rectangle { color: "#101010" } delegate: RetroButton { monochrome: true } }
         Label { text: "Результаты ответов сохранятся в архиве.\nНезавершённый вопрос не учитывается."; font.family: "DejaVu Sans"; font.pixelSize: 17 }
         onAccepted: { selectionTimer.stop(); game.finish() }
     }
