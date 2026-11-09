@@ -10,6 +10,7 @@
 #include <QTemporaryDir>
 #include <QFontDatabase>
 #include <QDir>
+#include <QColor>
 #include <QCollator>
 #include <QLocale>
 #include "GameController.h"
@@ -100,7 +101,20 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     auto cat=window->findChild<QObject*>("menuCat"); ASSERT_NE(cat,nullptr);
     c.setEffects(false); QSignalSpy tailMotion(cat,SIGNAL(tailChanged())); QTest::qWait(180);
     EXPECT_TRUE(cat->property("animated").toBool()); EXPECT_GT(tailMotion.count(),0); c.setEffects(true);
-    click("settingsButton"); capture("11-settings"); QTest::keyClick(window,Qt::Key_Escape);
+    auto nameField=window->findChild<QQuickItem*>("playerNameInput"); ASSERT_NE(nameField,nullptr);
+    nameField->forceActiveFocus(); nameField->setProperty("text",""); QCoreApplication::processEvents();
+    auto hint=window->findChild<QQuickItem*>("nameHint"); ASSERT_NE(hint,nullptr); EXPECT_TRUE(hint->isVisible());
+    auto title=window->findChild<QQuickItem*>("menuTitle"); auto play=window->findChild<QQuickItem*>("playButton");
+    ASSERT_NE(title,nullptr); ASSERT_NE(play,nullptr);
+    EXPECT_NEAR(title->mapToScene(QPointF(title->width()/2,0)).x(),play->mapToScene(QPointF(play->width()/2,0)).x(),1);
+    click("settingsButton"); capture("11-settings");
+    for(const char* sliderName : {"musicSlider","soundSlider"}) {
+        auto slider=window->findChild<QObject*>(sliderName); ASSERT_NE(slider,nullptr);
+        auto handle=slider->property("handle").value<QQuickItem*>(); ASSERT_NE(handle,nullptr);
+        QTest::mouseMove(window,handle->mapToScene(QPointF(handle->width()/2,handle->height()/2)).toPoint()); QTest::qWait(160);
+        EXPECT_EQ(handle->property("color").value<QColor>(),QColor("#ffffff"));
+    }
+    QTest::keyClick(window,Qt::Key_Escape);
     window->setProperty("page","setup"); capture("10-training-setup");
     QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(75,282));
     click("startTrainingButton"); QTest::qWait(150);

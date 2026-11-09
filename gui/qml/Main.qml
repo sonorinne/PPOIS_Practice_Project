@@ -63,14 +63,16 @@ ApplicationWindow {
             Item {
                 anchors.fill: parent; visible: page === "menu"
                 Column {
-                    y: 48; spacing: -25
+                    id: menuHeading; x: -8; y: 30; spacing: -34
                     TextMetrics { id: titleMetrics; text: "СВОЯ ИГРА"; font: titleText.font }
                     TextMetrics { id: welcomeMetrics; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР!"; font.family: "Oswald"; font.pixelSize: 32 }
-                    Text { objectName: "menuWelcome"; text: welcomeMetrics.text; color: "#e1ce85"; font.family: "Oswald"; font.pixelSize: 32; font.letterSpacing: Math.max(0,(titleMetrics.width - welcomeMetrics.width)/(text.length-1)) }
-                    Text { id: titleText; objectName: "menuTitle"; text: "СВОЯ ИГРА"; font.bold: true; font.pixelSize: 118; font.letterSpacing: 1; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1" }
+                    Text { objectName: "menuWelcome"; text: welcomeMetrics.text; color: "#e1ce85"; font.family: "Oswald"; font.pixelSize: Math.floor(32 * titleMetrics.width / welcomeMetrics.width); font.letterSpacing: 0 }
+                    Text { id: titleText; objectName: "menuTitle"; text: "СВОЯ ИГРА"; font.bold: true; font.pixelSize: 128; font.letterSpacing: 1; color: "#edf4df"; style: Text.Raised; styleColor: "#446ca1" }
                 }
-                TextField { id: nameInput; objectName: "playerNameInput"; horizontalAlignment: TextInput.AlignHCenter; x: 0; y: 265; width: 500; height: 49; text: window.playerName; placeholderText: "Как тебя представить?"; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" } }
-                Column { y: 350; spacing: 18
+                TextField { id: nameInput; objectName: "playerNameInput"; horizontalAlignment: TextInput.AlignHCenter; x: menuHeading.x + titleText.implicitWidth / 2 - width / 2; y: 280; width: 500; height: 49; text: window.playerName; placeholderText: ""; maximumLength: 24; color: "#f2edcf"; font.pixelSize: 25; onTextEdited: window.playerName = text; background: Rectangle { color: "#081635"; border.color: "#566c99" }
+                    Text { objectName: "nameHint"; anchors.fill: parent; anchors.margins: 10; text: "Как тебя представить?"; color: "#a8bad0"; font: nameInput.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; visible: nameInput.text.length === 0 }
+                }
+                Column { x: menuHeading.x + titleText.implicitWidth / 2 - width / 2; y: 350; spacing: 18
                     RetroButton { objectName: "playButton"; text: "ИГРАТЬ"; accent: true; implicitWidth: 500; onClicked: game.startClassic(nameInput.text) }
                     RetroButton { objectName: "trainingButton"; text: "ТРЕНИРОВКА"; implicitWidth: 500; onClicked: page = "setup" }
                     RetroButton { text: "АРХИВ РЕЗУЛЬТАТОВ"; implicitWidth: 500; onClicked: game.showHistory() }
@@ -313,9 +315,9 @@ ApplicationWindow {
         footer: DialogButtonBox { standardButtons: settingsDialog.standardButtons; spacing: 20; padding: 12; background: Rectangle { color: "transparent" } delegate: RetroButton { monochrome: true; implicitWidth: 110; implicitHeight: 44 } }
         Column { width: 450; spacing: 12
             RetroCheckBox { monochrome: true; text: "Фоновая музыка"; checked: window.s.music; onClicked: game.setAudio(checked, window.s.sounds, window.s.musicVolume, window.s.soundVolume) }
-            RetroSlider { monochrome: true; width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
+            RetroSlider { objectName: "musicSlider"; monochrome: true; width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
             RetroCheckBox { monochrome: true; text: "Звуки вопросов и ответов"; checked: window.s.sounds; onClicked: game.setAudio(window.s.music,checked,window.s.musicVolume,window.s.soundVolume) }
-            RetroSlider { monochrome: true; width: 430; from: 0; to: 1; value: window.s.soundVolume; enabled: window.s.sounds; onMoved: { game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value); if(!previewTimer.running && !previewSound.playing) previewTimer.start() } }
+            RetroSlider { objectName: "soundSlider"; monochrome: true; width: 430; from: 0; to: 1; value: window.s.soundVolume; onMoved: { game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value); if(!previewTimer.running && !previewSound.playing) previewTimer.start() } }
             RetroCheckBox { monochrome: true; text: "Выпуклый экран"; checked: window.s.curvature; onClicked: game.setCurvature(checked) }
             RetroCheckBox { monochrome: true; text: "Экранные помехи"; checked: window.s.effects; onClicked: game.setEffects(checked) }
         }

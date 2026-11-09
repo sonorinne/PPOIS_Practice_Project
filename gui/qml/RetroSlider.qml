@@ -14,7 +14,7 @@ Slider {
         x: control.leftPadding + control.visualPosition * (control.availableWidth - width)
         y: control.topPadding + (control.availableHeight - height) / 2
         width: 24; height: 24; radius: 12
-        color: control.monochrome ? (!control.enabled ? "#555555" : control.pressed || hover.hovered ? "#ffffff" : "#aaaaaa") : !control.enabled ? "#536078" : control.pressed ? "#fff7d7" : hover.hovered ? "#fff0a0" : "#d4c17c"
+        color: control.monochrome ? (control.pressed || hover.hovered ? "#ffffff" : !control.enabled ? "#555555" : "#aaaaaa") : !control.enabled ? "#536078" : control.pressed ? "#fff7d7" : hover.hovered ? "#fff0a0" : "#d4c17c"
         border.width: hover.hovered ? 2 : 1; border.color: control.monochrome ? "#ffffff" : hover.hovered ? "white" : "#83784e"
         HoverHandler { id: hover }
         Behavior on color { ColorAnimation { duration: 100 } }
