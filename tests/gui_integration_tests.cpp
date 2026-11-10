@@ -14,6 +14,7 @@
 #include <QCollator>
 #include <QLocale>
 #include "GameController.h"
+#include "Interaction.h"
 
 TEST(GuiController, ClassicAnswerCannotBeCountedTwiceAndHistoryPersists) {
     QSettings().clear(); GameController c;
@@ -29,7 +30,7 @@ TEST(GuiController, ClassicAnswerCannotBeCountedTwiceAndHistoryPersists) {
 }
 TEST(GuiController, TrainingFiltersScoresAndReviewsMistakes) {
     QSettings().clear(); GameController c;
-    c.startTraining("Тест", {1}, 100, 100, 5);
+    c.startTraining("Тест", {1}, 100, 100, 1);
     ASSERT_EQ(c.state()["total"].toInt(),1);
     c.submit(""); EXPECT_EQ(c.state()["score"].toInt(),0); c.advance();
     EXPECT_EQ(c.state()["screen"].toString(),"results"); EXPECT_EQ(c.state()["mistakes"].toList().size(),1);
@@ -77,6 +78,17 @@ TEST(GuiController, SortedThemesAndIndependentDisplaySettingsAndModeCues) {
     c.startTraining("Тест",{1},100,100,1); EXPECT_EQ(start.count(),1); c.menu(); EXPECT_EQ(end.count(),1);
     c.startClassic("Тест"); c.finish(); EXPECT_EQ(end.count(),2); c.menu(); EXPECT_EQ(end.count(),2);
 }
+TEST(GuiController, TrainingCapacityAndFarewellPreserveAnswers) {
+    QSettings().clear(); GameController c;
+    EXPECT_EQ(c.availableQuestions({1},100,100),1);
+    c.startTraining("Тест",{1},100,100,2); EXPECT_EQ(c.state()["screen"].toString(),"menu"); EXPECT_FALSE(c.state()["error"].toString().isEmpty());
+    c.startTraining("Тест",{1},100,100,1); c.submit(""); c.shutdown();
+    EXPECT_EQ(c.state()["screen"].toString(),"farewell"); EXPECT_EQ(c.state()["history"].toList().size(),1);
+    for(auto pos:{QPointF(80,50),QPointF(640,400),QPointF(1100,700)}) {
+        auto roundtrip=Interaction::sourcePoint(Interaction::displayPoint(pos,QSizeF(1280,800)),QSizeF(1280,800));
+        EXPECT_NEAR(roundtrip.x(),pos.x(),0.001); EXPECT_NEAR(roundtrip.y(),pos.y(),0.001);
+    }
+}
 TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     QSettings().clear(); GameController c; c.setAudio(false,false,0.2,0.3);
     QQmlApplicationEngine engine;
@@ -86,6 +98,7 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     engine.load(QUrl("qrc:/gui/qml/Main.qml"));
     ASSERT_EQ(engine.rootObjects().size(),1);
     auto window=qobject_cast<QQuickWindow*>(engine.rootObjects().front()); ASSERT_NE(window,nullptr);
+    new Interaction(window);
     auto capture=[&](const QString& name){
         QTest::qWait(500);
         auto directory=qEnvironmentVariable("OWNGAME_SCREENSHOT_DIR");
@@ -93,7 +106,7 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     };
     auto click=[&](const char* name) {
         auto item=window->findChild<QQuickItem*>(name); EXPECT_NE(item,nullptr);
-        if(item) QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,item->mapToScene(QPointF(item->width()/2,item->height()/2)).toPoint());
+        if(item) { auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2)); if(window->property("curvatureInput").toBool() && !window->property("modalOpen").toBool()) point=Interaction::displayPoint(point,window->size()); QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,point.toPoint()); }
     };
     if(qEnvironmentVariableIsSet("OWNGAME_TEST_CURVATURE")) c.setCurvature(true);
     capture("01-menu");
@@ -116,13 +129,14 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     }
     QTest::keyClick(window,Qt::Key_Escape);
     window->setProperty("page","setup"); capture("10-training-setup");
-    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(75,282));
+    QPointF themePoint(75,282); if(window->property("curvatureInput").toBool()) themePoint=Interaction::displayPoint(themePoint,window->size()); QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,themePoint.toPoint());
+    window->findChild<QObject*>("questionCount")->setProperty("currentIndex",0);
     click("startTrainingButton"); QTest::qWait(150);
     ASSERT_EQ(c.state()["screen"].toString(),"question");
     EXPECT_EQ(c.state()["theme"].toString(),c.categories().first().toMap()["name"].toString()); c.menu();
-    click("playButton");
+    play->forceActiveFocus(); QTest::keyClick(window,Qt::Key_Return);
     ASSERT_EQ(c.state()["screen"].toString(),"board"); QTest::qWait(2300); capture("02-board");
-    QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,QPoint(486,232)); QTest::qWait(650);
+    QPointF cellPoint(486,232); if(window->property("curvatureInput").toBool()) cellPoint=Interaction::displayPoint(cellPoint,window->size()); QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,cellPoint.toPoint()); QTest::qWait(650);
     if(c.state()["screen"]=="cat") { capture("03-cat"); c.catStake(100); }
     EXPECT_EQ(c.state()["screen"].toString(),"question"); capture("04-question");
     c.submit(""); capture("05-answer"); c.advance(); c.finish(); capture("06-results"); c.menu();
@@ -147,6 +161,12 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     }
     click("exitButton"); capture("12-exit-confirmation"); QTest::keyClick(window,Qt::Key_Escape);
     c.finish(); c.showHistory(); capture("09-history");
+    c.startClassic("Тест"); QTest::keyClick(window,Qt::Key_Escape); QTest::qWait(250);
+    EXPECT_TRUE(window->property("modalOpen").toBool()); QTest::keyClick(window,Qt::Key_Escape);
+    c.menu(); click("exitButton"); QTest::qWait(250);
+    auto exitDialog=window->findChild<QObject*>("exitDialog"); ASSERT_NE(exitDialog,nullptr);
+    QMetaObject::invokeMethod(exitDialog,"accept");
+    EXPECT_EQ(c.state()["screen"].toString(),"farewell"); capture("14-farewell");
     EXPECT_TRUE(warnings.isEmpty()) << warnings.join("\n").toStdString();
 }
 int main(int argc,char** argv) {

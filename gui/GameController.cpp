@@ -83,7 +83,14 @@ void GameController::startClassic(const QString& name) {
     emit changed();
     if(screen == "board") emit roundStarted(board.GetRound());
 }
+int GameController::availableQuestions(const QVariantList& ids,int minCost,int maxCost) const {
+    TrainingSettings config; config.min_cost=minCost; config.max_cost=maxCost;
+    for(const auto& id:ids) config.category_ids.push_back(id.toInt());
+    return static_cast<int>(FilterQuestions(questionData.GetAll(),config).size());
+}
 void GameController::startTraining(const QString& name, const QVariantList& ids, int minCost, int maxCost, int count) {
+    int maximum=availableQuestions(ids,minCost,maxCost);
+    if(count>maximum || maximum==0) { error=QString("Доступно вопросов: %1. Выберите не больше этого количества.").arg(maximum); emit changed(); return; }
     reset(name, true);
     TrainingSettings config; config.min_cost = minCost; config.max_cost = maxCost; config.question_count = count;
     for (const auto& id : ids) config.category_ids.push_back(id.toInt());
@@ -165,3 +172,5 @@ void GameController::setAudio(bool m, bool s, double mv, double sv) {
 }
 
 void GameController::setCurvature(bool on) { curvature=on; settings.setValue("curvature",on); emit changed(); }
+
+void GameController::shutdown() { roundTimer.stop(); if(screen=="board" || screen=="question" || screen=="cat" || screen=="roundEnd") saveResult(); current.reset(); screen="farewell"; emit changed(); emit modeFinished(); }

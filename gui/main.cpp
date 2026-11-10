@@ -10,6 +10,7 @@
 #include <QQuickItemGrabResult>
 #include <QImage>
 #include "GameController.h"
+#include "Interaction.h"
 int main(int argc, char** argv) {
     QGuiApplication app(argc, argv);
     QCoreApplication::setOrganizationName("OwnGameStudentProject");
@@ -24,6 +25,7 @@ int main(int argc, char** argv) {
         engine.rootContext()->setContextProperty("game", &controller);
         engine.load(QUrl("qrc:/gui/qml/Main.qml"));
         if (engine.rootObjects().isEmpty()) return 1;
+        new Interaction(qobject_cast<QQuickWindow*>(engine.rootObjects().front()));
         int iconArg = app.arguments().indexOf("--export-icon");
         if (iconArg >= 0 && iconArg + 1 < app.arguments().size()) {
             const auto path = app.arguments().at(iconArg + 1);

@@ -6,6 +6,8 @@ Button {
     property bool monochrome: false
     implicitHeight: 52
     implicitWidth: Math.max(140, label.implicitWidth + 40)
+    Keys.onReturnPressed: if(enabled) clicked()
+    Keys.onEnterPressed: if(enabled) clicked()
     hoverEnabled: true
     font.family: "Oswald"
     font.pixelSize: 26

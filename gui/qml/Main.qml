@@ -17,14 +17,17 @@ ApplicationWindow {
     function beginSelection(cell) { selectedCell = cell; rowFlash.restart() }
     function playCue(cue) { stopCues(); if(window.s.sounds) cue.play() }
     function stopCues() { rightSound.stop(); wrongSound.stop(); catSound.stop(); fanfareSound.stop(); endSound.stop(); noAnswerSound.stop() }
+    property real menuShift: 17
     property int serial: 0
     property var chosenCategories: []
     property string playerName: s.player
     property string backendScreen: "menu"
+    property bool modalOpen: settingsDialog.opened || exitDialog.opened || leaveDialog.opened
+    property bool curvatureInput: curvedScreen.visible
     property bool quitting: false
     property bool exportingIcon: false
-    onClosing: function(close) { if (!quitting && ["board","question","cat","roundEnd"].indexOf(page) >= 0) { close.accepted = false; exitDialog.open() } }
-    Shortcut { sequence: "Return"; enabled: page === "question" && window.s.answered; onActivated: game.advance() }
+    onClosing: function(close) { if(!quitting) { close.accepted=false; if(page!=="farewell") exitDialog.open() } }
+    Shortcut { sequence: "Escape"; enabled: !window.modalOpen && page!=="farewell"; onActivated: { if(["board","question","cat","roundEnd"].indexOf(page)>=0) leaveDialog.open(); else if(page!=="menu") { game.menu(); page="menu" } } }
     font.family: "Oswald"
     font.pixelSize: 24
     Connections {
@@ -37,7 +40,7 @@ ApplicationWindow {
         function onCatOpened() { window.playCue(catSound) }
         function onAnswerRevealed() { window.playCue(noAnswerSound) }
         function onResponseSubmitted(correct) { window.playCue(correct ? rightSound : wrongSound) }
-        function onChanged() { if (game.state.serial !== window.serial) { window.serial = game.state.serial; answerInput.text = ""; reveal.restart(); Qt.callLater(function() { answerInput.forceActiveFocus() }) } if (game.state.screen !== window.backendScreen) { window.backendScreen = game.state.screen; window.page = game.state.screen } }
+        function onChanged() { if(game.state.answered && page === "question") Qt.callLater(function() { continueButton.forceActiveFocus() }); if (game.state.serial !== window.serial) { window.serial = game.state.serial; answerInput.text = ""; reveal.restart(); Qt.callLater(function() { answerInput.forceActiveFocus() }) } if (game.state.screen !== window.backendScreen) { window.backendScreen = game.state.screen; window.page = game.state.screen } }
     }
     onPageChanged: { if(page !== "board" && page !== "roundEnd") { roundIntro.stop(); roundBanner.visible = false } reveal.restart(); answerInput.text = ""; selectedCell = -1;  audio.stop(); if(page === "question") Qt.callLater(function() { answerInput.forceActiveFocus() }) }
     Item {
@@ -50,9 +53,9 @@ ApplicationWindow {
         Text { x: 56; y: 27; text: "СВОЯ ИГРА / ИНТЕЛЛЕКТУАЛЬНЫЙ ТРЕНАЖЁР"; color: "#b2c6df"; font.pixelSize: 21; font.letterSpacing: 1.1 }
         Row {
             anchors.right: parent.right; anchors.rightMargin: 44; y: 22; spacing: 16
-            RetroButton { objectName: "settingsButton"; text: "НАСТРОЙКИ"; implicitHeight: 38; font.pixelSize: 18; onClicked: settingsDialog.open() }
-            RetroButton { text: "МЕНЮ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; visible: page !== "menu"; onClicked: { if (["board", "question", "cat", "roundEnd"].indexOf(page) >= 0) leaveDialog.open(); else { game.menu(); page = "menu" } } }
-            RetroButton { objectName: "exitButton"; text: "ВЫЙТИ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; onClicked: { if (["board","question","cat","roundEnd"].indexOf(page) >= 0) exitDialog.open(); else { window.quitting = true; window.close() } } }
+            RetroButton { visible: page !== "farewell"; objectName: "settingsButton"; text: "НАСТРОЙКИ"; implicitHeight: 38; font.pixelSize: 18; onClicked: settingsDialog.open() }
+            RetroButton { text: "МЕНЮ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; visible: page !== "menu" && page !== "farewell"; onClicked: { if (["board", "question", "cat", "roundEnd"].indexOf(page) >= 0) leaveDialog.open(); else { game.menu(); page = "menu" } } }
+            RetroButton { visible: page !== "farewell"; objectName: "exitButton"; text: "ВЫЙТИ"; implicitHeight: 38; implicitWidth: 100; font.pixelSize: 20; onClicked: exitDialog.open() }
         }
         Rectangle { x: 44; y: 72; width: 1192; height: 1; color: "#4a5b85" }
 
@@ -63,7 +66,7 @@ ApplicationWindow {
             Item {
                 anchors.fill: parent; visible: page === "menu"
                 Column {
-                    id: menuHeading; x: -8; y: 30; spacing: -34
+                    id: menuHeading; x: -8 + window.menuShift; y: 30; spacing: -34
                     TextMetrics { id: titleMetrics; text: "СВОЯ ИГРА"; font: titleText.font }
                     TextMetrics { id: welcomeMetrics; text: "ДОБРО ПОЖАЛОВАТЬ В ЭФИР!"; font.family: "Oswald"; font.pixelSize: 32 }
                     Text { objectName: "menuWelcome"; text: welcomeMetrics.text; color: "#e1ce85"; font.family: "Oswald"; font.pixelSize: Math.floor(32 * titleMetrics.width / welcomeMetrics.width); font.letterSpacing: 0 }
@@ -77,7 +80,7 @@ ApplicationWindow {
                     RetroButton { objectName: "trainingButton"; text: "ТРЕНИРОВКА"; implicitWidth: 500; onClicked: page = "setup" }
                     RetroButton { text: "АРХИВ РЕЗУЛЬТАТОВ"; implicitWidth: 500; onClicked: game.showHistory() }
                 }
-                Cat { objectName: "menuCat"; x: 600; y: -20; width: 600; height: 690; animated: true }
+                Cat { objectName: "menuCat"; x: 600 + window.menuShift; y: -20; width: 600; height: 690; animated: true }
             }
             Item {
                 anchors.fill: parent; visible: page === "board"
@@ -94,16 +97,16 @@ ApplicationWindow {
                             width: 1168; height: 73
                             Rectangle {
                                 width: 348; height: 73
-                                color: (window.flashOn && window.selectedCell >= 0 && Math.floor(window.selectedCell / 5) === boardRow.rowNumber) ? "#646039" : "#142b71"
+                                color: window.selectedCell >= 0 ? (window.flashOn && Math.floor(window.selectedCell/5) === boardRow.rowNumber ? "#bcae6a" : "#132c78") : "#142b71"
                                 border.color: "#566caa"
-                                Text { anchors.fill: parent; anchors.margins: 14; text: boardRow.modelData.name.toUpperCase(); color: "#e1d597"; font.pixelSize: 25; wrapMode: Text.WordWrap; verticalAlignment: Text.AlignVCenter; lineHeight: 0.9 }
+                                Text { anchors.fill: parent; anchors.margins: 14; text: window.selectedCell < 0 || Math.floor(window.selectedCell/5) === boardRow.rowNumber ? boardRow.modelData.name.toUpperCase() : ""; color: window.selectedCell >= 0 && window.flashOn ? "#112455" : "#e1d597"; font.pixelSize: 25; wrapMode: Text.WordWrap; verticalAlignment: Text.AlignVCenter; lineHeight: 0.9 }
                             }
                             Repeater {
                                 model: boardRow.modelData.cells
                                 delegate: Rectangle {
                                     required property var modelData
                                     width: 164; height: 73
-                                    color: window.flashOn && window.selectedCell >= 0 && Math.floor(window.selectedCell / 5) === boardRow.rowNumber ? "#646039" : cellMouse.containsMouse && !modelData.used ? "#244ba1" : "#132c78"
+                                    color: window.selectedCell >= 0 ? (window.flashOn && window.selectedCell === modelData.index ? "#bcae6a" : "#132c78") : cellMouse.containsMouse && !modelData.used ? "#244ba1" : "#132c78"
                                     border.color: activeFocus ? "#fff6d0" : "#566caa"
                                     border.width: activeFocus ? 3 : 1
                                     activeFocusOnTab: !modelData.used
@@ -111,7 +114,7 @@ ApplicationWindow {
                                     Accessible.name: boardRow.modelData.name + " " + modelData.cost
                                     Keys.onReturnPressed: if (!modelData.used && window.selectedCell < 0) { window.beginSelection(modelData.index) }
                                     Keys.onSpacePressed: if (!modelData.used && window.selectedCell < 0) { window.beginSelection(modelData.index) }
-                                    Text { anchors.centerIn: parent; text: parent.modelData.used ? "" : parent.modelData.cost; font.pixelSize: 42; color: "#e8dea8" }
+                                    Text { anchors.centerIn: parent; text: parent.modelData.used || (window.selectedCell >= 0 && window.selectedCell !== parent.modelData.index) ? "" : parent.modelData.cost; font.pixelSize: 42; color: window.selectedCell === parent.modelData.index && window.flashOn ? "#112455" : "#e8dea8" }
                                     MouseArea {
                                         id: cellMouse; anchors.fill: parent; hoverEnabled: true
                                         enabled: !parent.modelData.used && window.selectedCell < 0
@@ -180,7 +183,7 @@ ApplicationWindow {
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: window.s.correct ? "ВЕРНО!" : "ОТВЕТ: " + (window.s.primaryAnswer || ""); color: window.s.correct ? "#b7dca0" : "#f0d394"; font.pixelSize: 31; wrapMode: Text.WordWrap }
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: "Твой ответ: " + (window.s.answer || "пропуск"); color: "#a5b8d5"; font.family: "DejaVu Sans"; font.pixelSize: 17; elide: Text.ElideRight }
                     Item { width: 1; height: 24 }
-                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; text: "ПРОДОЛЖИТЬ"; accent: true; onClicked: game.advance() }
+                    RetroButton { anchors.horizontalCenter: parent.horizontalCenter; id: continueButton; text: "ПРОДОЛЖИТЬ"; accent: true; onClicked: game.advance() }
                 }
             }
             Item {
@@ -200,12 +203,12 @@ ApplicationWindow {
                 Column { x: 660; y: 130; width: 440; spacing: 18
                     Text { text: "СЛОЖНОСТЬ И ДЛИНА ТРЕНИРОВКИ"; color: "#e1ce85"; font.pixelSize: 24 }
                     Row { spacing: 24
-                        Column { spacing: 8; Text { text: "ОТ СТОИМОСТИ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { id: minCost; model: [100,200,300,400,500]; width: 190; font.pixelSize: 24 } }
-                        Column { spacing: 8; Text { text: "ДО СТОИМОСТИ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { id: maxCost; model: [100,200,300,400,500]; currentIndex: 4; width: 190; font.pixelSize: 24 } }
+                        Column { spacing: 8; Text { text: "ОТ СТОИМОСТИ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { hoverEnabled: true; indicator: Text { x: parent.width-width-12; anchors.verticalCenter: parent.verticalCenter; text: "⌃\n⌄"; lineHeight: 0.65; color: parent.hovered ? "#237a79" : "#333333"; font.pixelSize: 23 } id: minCost; model: [100,200,300,400,500]; width: 190; font.pixelSize: 24 } }
+                        Column { spacing: 8; Text { text: "ДО СТОИМОСТИ"; color: "#a4b9d4"; font.pixelSize: 20 } ComboBox { hoverEnabled: true; indicator: Text { x: parent.width-width-12; anchors.verticalCenter: parent.verticalCenter; text: "⌃\n⌄"; lineHeight: 0.65; color: parent.hovered ? "#237a79" : "#333333"; font.pixelSize: 23 } id: maxCost; model: [100,200,300,400,500]; currentIndex: 4; width: 190; font.pixelSize: 24 } }
                     }
                     Text { text: "КОЛИЧЕСТВО ВОПРОСОВ"; color: "#a4b9d4"; font.pixelSize: 20 }
-                    ComboBox { id: questionCount; model: [5,10,15,20,30]; currentIndex: 1; width: 404; font.pixelSize: 24 }
-                    Text { width: 420; text: "Без штрафа за ошибки.\nС повторением трудных вопросов."; color: "#97aece"; font.pixelSize: 23; wrapMode: Text.WordWrap }
+                    ComboBox { hoverEnabled: true; indicator: Text { x: parent.width-width-12; anchors.verticalCenter: parent.verticalCenter; text: "⌃\n⌄"; lineHeight: 0.65; color: parent.hovered ? "#237a79" : "#333333"; font.pixelSize: 23 } id: questionCount; objectName: "questionCount"; model: [5,10,15,20,30]; currentIndex: 1; width: 404; font.pixelSize: 24 }
+                    Text { width: 420; text: "Доступно вопросов: " + game.availableQuestions(window.chosenCategories, Number(minCost.currentText), Number(maxCost.currentText)) + "\nБез штрафа за ошибки."; color: "#97aece"; font.pixelSize: 23; wrapMode: Text.WordWrap }
                     RetroButton { objectName: "startTrainingButton"; text: "НАЧАТЬ ТРЕНИРОВКУ"; implicitWidth: 404; accent: true; enabled: minCost.currentIndex <= maxCost.currentIndex; onClicked: game.startTraining(window.playerName, window.chosenCategories, Number(minCost.currentText), Number(maxCost.currentText), Number(questionCount.currentText)) }
                 }
             }
@@ -229,6 +232,11 @@ ApplicationWindow {
                     RetroButton { text: "ПОВТОРИТЬ ОШИБКИ"; visible: window.s.training && window.s.mistakes.length > 0; onClicked: game.reviewMistakes() }
                     RetroButton { text: "АРХИВ"; onClicked: game.showHistory() }
                 }
+            }
+            Item {
+                anchors.fill: parent; visible: page === "farewell"
+                Text { anchors.horizontalCenter: parent.horizontalCenter; y: 20; text: "ДО НОВЫХ ВСТРЕЧ!"; font.pixelSize: 70; font.bold: true; color: "#eee2a6" }
+                Cat { anchors.horizontalCenter: parent.horizontalCenter; y: 145; width: 360; height: 400; animated: true }
             }
             Item {
                 anchors.fill: parent; visible: page === "history"
@@ -285,14 +293,16 @@ ApplicationWindow {
     }
     SequentialAnimation {
         id: rowFlash
+        loops: 2
+        onFinished: selectionTimer.restart()
         PropertyAction { target: window; property: "flashOn"; value: true }
-        PauseAnimation { duration: window.s.effects ? 150 : 0 }
+        PauseAnimation { duration: 70 }
         PropertyAction { target: window; property: "flashOn"; value: false }
-        PauseAnimation { duration: window.s.effects ? 120 : 0 }
+        PauseAnimation { duration: 70 }
         PropertyAction { target: window; property: "flashOn"; value: true }
-        ScriptAction { script: selectionTimer.restart() }
+        PauseAnimation { duration: 90 }
     }
-    Timer { id: selectionTimer; interval: window.s.effects ? 130 : 1; onTriggered: { if(page === "board") game.select(window.selectedCell) } }
+    Timer { id: selectionTimer; interval: 1; onTriggered: { if(page === "board") game.select(window.selectedCell) } }
     AudioOutput { id: audioOutput; volume: 0.7 }
     MediaPlayer { id: audio; audioOutput: audioOutput; source: page === "question" && window.s.kind === "audio" ? window.s.media : ""; onSourceChanged: { if(source.toString().length > 0) play() } }
     AudioOutput { id: musicOutput; volume: window.s.music && !(page === "question" && window.s.kind === "audio" && !window.s.answered) ? window.s.musicVolume * 0.3 : 0 }
@@ -308,11 +318,11 @@ ApplicationWindow {
     SoundEffect { id: rightSound; source: "qrc:/gui/assets/right.wav"; volume: window.s.soundVolume }
     SoundEffect { id: wrongSound; source: "qrc:/gui/assets/wrong.wav"; volume: window.s.soundVolume }
     Dialog {
-        id: settingsDialog; objectName: "settingsDialog"; anchors.centerIn: parent; width: 510; modal: true; title: "Настройки эфира"; standardButtons: Dialog.Close
+        id: settingsDialog; objectName: "settingsDialog"; anchors.centerIn: parent; width: 510; modal: true; title: "Настройки эфира"; standardButtons: Dialog.NoButton
         palette.window: "#101010"; palette.windowText: "#ffffff"; palette.text: "#ffffff"; palette.buttonText: "#ffffff"; palette.button: "#222222"; palette.highlight: "#ffffff"; palette.highlightedText: "#000000"
         background: Rectangle { color: "#101010"; border.color: "#888888" }
-        header: Label { text: settingsDialog.title; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
-        footer: DialogButtonBox { standardButtons: settingsDialog.standardButtons; spacing: 20; padding: 12; background: Rectangle { color: "transparent" } delegate: RetroButton { monochrome: true; implicitWidth: 110; implicitHeight: 44 } }
+        header: Label { RetroButton { anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 10; monochrome: true; text: "×"; implicitWidth: 36; implicitHeight: 36; onClicked: settingsDialog.close() } text: settingsDialog.title; rightPadding: 65; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
+        footer: Item { implicitHeight: 0 }
         Column { width: 450; spacing: 12
             RetroCheckBox { monochrome: true; text: "Фоновая музыка"; checked: window.s.music; onClicked: game.setAudio(checked, window.s.sounds, window.s.musicVolume, window.s.soundVolume) }
             RetroSlider { objectName: "musicSlider"; monochrome: true; width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
@@ -322,15 +332,15 @@ ApplicationWindow {
             RetroCheckBox { monochrome: true; text: "Экранные помехи"; checked: window.s.effects; onClicked: game.setEffects(checked) }
         }
     }
-    Timer { id: exitAfterCue; interval: window.s.sounds ? 2800 : 1; onTriggered: window.close() }
+    Timer { id: exitAfterCue; interval: 2800; onTriggered: { window.quitting=true; window.close() } }
     Dialog {
-        id: exitDialog; anchors.centerIn: parent; width: 510; modal: true; title: "Выйти из приложения?"; standardButtons: Dialog.Yes | Dialog.No
+        id: exitDialog; objectName: "exitDialog"; anchors.centerIn: parent; width: 510; modal: true; title: "Выйти из приложения?"; standardButtons: Dialog.Yes | Dialog.No
         palette.window: "#101010"; palette.windowText: "#ffffff"; palette.text: "#ffffff"; palette.buttonText: "#ffffff"; palette.button: "#222222"; palette.highlight: "#ffffff"; palette.highlightedText: "#000000"
         background: Rectangle { color: "#101010"; border.color: "#888888" }
         header: Label { text: exitDialog.title; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
         footer: DialogButtonBox { standardButtons: exitDialog.standardButtons; spacing: 20; padding: 12; background: Rectangle { color: "transparent" } delegate: RetroButton { monochrome: true; implicitWidth: 110; implicitHeight: 44 } }
         Label { text: "Отвеченные вопросы сохранятся в архиве."; font.pixelSize: 22 }
-        onAccepted: { selectionTimer.stop(); game.finish(); window.quitting = true; exitAfterCue.start() }
+        onAccepted: { selectionTimer.stop(); game.shutdown(); exitAfterCue.start() }
     }
     Dialog {
         id: leaveDialog; anchors.centerIn: parent; width: 520; modal: true; title: "Завершить сессию?"; standardButtons: Dialog.Ok | Dialog.Cancel
@@ -339,6 +349,6 @@ ApplicationWindow {
         header: Label { text: leaveDialog.title; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
         footer: DialogButtonBox { standardButtons: leaveDialog.standardButtons; spacing: 20; padding: 12; background: Rectangle { color: "transparent" } delegate: RetroButton { monochrome: true; implicitWidth: 110; implicitHeight: 44 } }
         Label { text: "Результаты ответов сохранятся в архиве.\nНезавершённый вопрос не учитывается."; font.family: "DejaVu Sans"; font.pixelSize: 17 }
-        onAccepted: { selectionTimer.stop(); game.finish() }
+        onAccepted: { selectionTimer.stop(); rowFlash.stop(); game.menu() }
     }
 }
