@@ -262,7 +262,7 @@ ApplicationWindow {
             ParallelAnimation { id: titleEntrance; NumberAnimation { target: titleShift; property: "y"; from: -100; to: 0; duration: 420; easing.type: Easing.OutBack } NumberAnimation { target: roundTitle; property: "opacity"; from: 0; to: 1; duration: 260 } }
             SequentialAnimation { id: roundIntro; PropertyAction { target: roundBanner; property: "visible"; value: true } ScriptAction { script: titleEntrance.restart() } PauseAnimation { duration: 2200 } PropertyAction { target: roundBanner; property: "visible"; value: false } }
         }
-        BroadcastNoise { anchors.fill: parent; active: window.s.effects; z: 40 }
+        BroadcastNoise { anchors.fill: parent; curved: window.curvatureInput; active: window.s.effects; z: 40 }
         IconArtwork { objectName: "exportIcon"; width: 512; height: 512; visible: window.exportingIcon; z: 100 }
         Text { x: 56; y: 698; width: 1168; text: window.s.error; color: "#f3b2a1"; font.pixelSize: 20; elide: Text.ElideRight }
         Rectangle { x: 44; y: 730; width: 1192; height: 1; color: "#4a5b85" }
@@ -289,6 +289,7 @@ ApplicationWindow {
         width: stage.width; height: stage.height; scale: stage.scale
         visible: window.s.curvature && GraphicsInfo.api !== GraphicsInfo.Software
         property variant source: screenTexture
+        property real scanlineStrength: window.s.effects ? 0.11 : 0.0
         fragmentShader: "qrc:/gui/shaders/curved.frag.qsb"
     }
     SequentialAnimation {
@@ -349,6 +350,6 @@ ApplicationWindow {
         header: Label { text: leaveDialog.title; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
         footer: DialogButtonBox { standardButtons: leaveDialog.standardButtons; spacing: 20; padding: 12; background: Rectangle { color: "transparent" } delegate: RetroButton { monochrome: true; implicitWidth: 110; implicitHeight: 44 } }
         Label { text: "Результаты ответов сохранятся в архиве.\nНезавершённый вопрос не учитывается."; font.family: "DejaVu Sans"; font.pixelSize: 17 }
-        onAccepted: { selectionTimer.stop(); rowFlash.stop(); game.menu() }
+        onAccepted: { selectionTimer.stop(); rowFlash.stop(); game.finish() }
     }
 }

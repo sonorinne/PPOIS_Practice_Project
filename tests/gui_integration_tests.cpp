@@ -89,6 +89,13 @@ TEST(GuiController, TrainingCapacityAndFarewellPreserveAnswers) {
         EXPECT_NEAR(roundtrip.x(),pos.x(),0.001); EXPECT_NEAR(roundtrip.y(),pos.y(),0.001);
     }
 }
+TEST(GuiController, NormalTrainingAndClassicFinishShowResultsButShutdownShowsFarewell) {
+    QSettings().clear(); GameController c;
+    c.startTraining("Тест",{1},100,100,1); c.submit(""); c.advance();
+    EXPECT_EQ(c.state()["screen"].toString(),"results");
+    c.startClassic("Тест"); c.finish(); EXPECT_EQ(c.state()["screen"].toString(),"results");
+    c.startTraining("Тест",{1},100,100,1); c.shutdown(); EXPECT_EQ(c.state()["screen"].toString(),"farewell");
+}
 TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     QSettings().clear(); GameController c; c.setAudio(false,false,0.2,0.3);
     QQmlApplicationEngine engine;

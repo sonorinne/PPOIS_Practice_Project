@@ -19,13 +19,13 @@ class Interaction : public QObject {
         p.setRenderHint(QPainter::Antialiasing); p.setPen(QPen(QColor("#203f52"),2)); p.setBrush(QColor("#78aaa0"));
         if(kind==2) {
             p.drawRect(21,5,6,37); p.drawRect(13,4,22,5); p.drawRect(13,39,22,5);
-            return QCursor(pix,24,24);
+            p.end(); return QCursor(pix.scaled(34,34,Qt::KeepAspectRatio,Qt::SmoothTransformation),17,17);
         }
         QPolygon shape;
         if(kind==1) shape << QPoint(9,29)<<QPoint(9,5)<<QPoint(13,2)<<QPoint(17,5)<<QPoint(17,22)<<QPoint(22,19)<<QPoint(27,22)<<QPoint(31,21)<<QPoint(36,25)<<QPoint(41,27)<<QPoint(40,37)<<QPoint(34,45)<<QPoint(18,45)<<QPoint(4,31)<<QPoint(4,27);
         else shape << QPoint(8,25)<<QPoint(8,15)<<QPoint(13,12)<<QPoint(17,17)<<QPoint(19,10)<<QPoint(24,9)<<QPoint(27,16)<<QPoint(31,13)<<QPoint(36,16)<<QPoint(38,25)<<QPoint(42,29)<<QPoint(39,39)<<QPoint(32,45)<<QPoint(17,43)<<QPoint(4,31)<<QPoint(4,26);
         p.drawPolygon(shape); p.setPen(QPen(QColor("#bad5b4"),2)); p.drawLine(19,31,32,35);
-        return QCursor(pix,kind==1?13:8,kind==1?3:24);
+        p.end(); return QCursor(pix.scaled(34,34,Qt::KeepAspectRatio,Qt::SmoothTransformation),kind==1?9:6,kind==1?2:17);
     }
     int kindAt(QQuickItem* item,QPointF pos) {
         if(!item->isVisible() || !item->isEnabled() || item->objectName()=="curvedScreen") return -1;
