@@ -22,6 +22,7 @@ GameController::GameController(QObject* parent) : QObject(parent) {
     db.Initialize(); db.LoadCategories(categoryData); db.LoadQuestions(questionData);
     music = settings.value("music", true).toBool(); sounds = settings.value("sounds", true).toBool();
     musicVolume = settings.value("musicVolume", 0.22).toDouble(); soundVolume = settings.value("soundVolume", 0.6).toDouble();
+    fullScreen = settings.value("fullScreen", false).toBool();
     curvature = settings.value("curvature", false).toBool();
     effects = settings.value("effects", true).toBool();
     player = settings.value("player", "Игрок").toString();
@@ -40,7 +41,7 @@ QString GameController::categoryName(int id) const { return QString::fromStdStri
 QVariantMap GameController::state() const {
     const int good = training ? trainingSession.GetStatistics().GetTotal().correct : game.GetSession().GetCorrectCount();
     const int bad = training ? trainingSession.GetStatistics().GetTotal().total - good : game.GetSession().GetIncorrectCount();
-    QVariantMap s{{"curvature", curvature}, {"serial", questionSerial}, {"music", music}, {"sounds", sounds}, {"musicVolume", musicVolume}, {"soundVolume", soundVolume}, {"screen", screen}, {"player", player}, {"effects", effects}, {"training", training},
+    QVariantMap s{{"fullScreen",fullScreen},{"answerViewed",answerViewed},{"curvature", curvature}, {"serial", questionSerial}, {"music", music}, {"sounds", sounds}, {"musicVolume", musicVolume}, {"soundVolume", soundVolume}, {"screen", screen}, {"player", player}, {"effects", effects}, {"training", training},
         {"score", training ? trainingScore : game.GetSession().GetScore()}, {"correctCount", good}, {"wrongCount", bad},
         {"answeredCount", good + bad}, {"round", board.GetRound()}, {"answered", answered}, {"correct", correct},
         {"catTheme", QString::fromStdString(board.GetCatTheme())}, {"error", error}, {"answer", answerText}, {"history", history}, {"mistakes", mistakes},
@@ -73,7 +74,7 @@ void GameController::reset(const QString& name, bool isTraining) {
     player = name.trimmed().isEmpty() ? "Игрок" : name.trimmed().left(24);
     settings.setValue("player", player);
     training = isTraining; game = Game(); trainingSession = TrainingSession(); current.reset();
-    error.clear(); mistakes.clear(); answerText.clear(); trainingScore = 0; saved = false; answered = false;
+    answerViewed = false; error.clear(); mistakes.clear(); answerText.clear(); trainingScore = 0; saved = false; answered = false;
 }
 void GameController::startClassic(const QString& name) {
     reset(name, false);
@@ -110,7 +111,7 @@ void GameController::catStake(int stake) {
     try { current = board.Select(pendingCell, stake); present(); }
     catch (const std::exception& e) { error = QString::fromUtf8(e.what()); emit changed(); }
 }
-void GameController::present() { ++questionSerial; answered = false; error.clear(); answerText.clear(); screen = "question"; emit changed(); emit questionOpened(); }
+void GameController::present() { answerViewed=false; ++questionSerial; answered = false; error.clear(); answerText.clear(); screen = "question"; emit changed(); emit questionOpened(); }
 void GameController::submit(const QString& input) {
     if (screen != "question" || answered || !current) return;
     auto text = input.trimmed().normalized(QString::NormalizationForm_C);
@@ -123,14 +124,14 @@ void GameController::submit(const QString& input) {
         correct = trainingSession.SubmitAnswer(accepted.toStdString());
         if (correct) trainingScore += current->GetCost();
     } else correct = game.AnswerQuestion(current, accepted.toStdString());
-    answerText = text; answered = true;
+    answerViewed = revealing; answerText = text; answered = true;
     if (!correct) mistakes << QVariantMap{{"theme", categoryName(current->GetCategoryId())}, {"text", QString::fromStdString(current->GetText())}, {"answer", QString::fromStdString(current->GetPrimaryAnswer())}};
     emit changed(); if(!revealing) emit responseSubmitted(correct);
 }
 void GameController::revealAnswer() {
     if (screen != "question" || answered || !current) return;
     if (training) { revealing = true; submit(""); revealing = false; emit answerRevealed(); return; }
-    correct = false; answered = true; answerText.clear();
+    answerViewed = true; correct = false; answered = true; answerText.clear();
     emit changed(); emit answerRevealed();
 }
 void GameController::advance() {
@@ -174,3 +175,5 @@ void GameController::setAudio(bool m, bool s, double mv, double sv) {
 void GameController::setCurvature(bool on) { curvature=on; settings.setValue("curvature",on); emit changed(); }
 
 void GameController::shutdown() { roundTimer.stop(); if(screen=="board" || screen=="question" || screen=="cat" || screen=="roundEnd") saveResult(); current.reset(); screen="farewell"; emit changed(); emit modeFinished(); }
+
+void GameController::setFullScreen(bool on) { fullScreen=on; settings.setValue("fullScreen",on); emit changed(); }

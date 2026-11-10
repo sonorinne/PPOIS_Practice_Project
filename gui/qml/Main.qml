@@ -22,8 +22,23 @@ ApplicationWindow {
     property var chosenCategories: []
     property string playerName: s.player
     property string backendScreen: "menu"
-    property bool modalOpen: settingsDialog.opened || exitDialog.opened || leaveDialog.opened
+    property bool modalOpen: settingsDialog.opened || exitDialog.opened || leaveDialog.opened || finishDialog.opened
     property bool curvatureInput: curvedScreen.visible
+    property rect windowedGeometry: Qt.rect(0,0,1280,800)
+    property bool wasMaximized: false
+    function setFullScreen(on) {
+        if(on) {
+            if(visibility !== Window.FullScreen) {
+                windowedGeometry=Qt.rect(x,y,width,height); wasMaximized=visibility === Window.Maximized; showFullScreen()
+            }
+        } else if(visibility === Window.FullScreen) {
+            if(wasMaximized) showMaximized()
+            else { showNormal(); x=windowedGeometry.x; y=windowedGeometry.y; width=windowedGeometry.width; height=windowedGeometry.height }
+        }
+        game.setFullScreen(on)
+    }
+    Component.onCompleted: if(window.s.fullScreen) Qt.callLater(function(){ window.setFullScreen(true) })
+    Shortcut { sequence: "F11"; enabled: page !== "farewell"; onActivated: window.setFullScreen(window.visibility !== Window.FullScreen) }
     property bool quitting: false
     property bool exportingIcon: false
     onClosing: function(close) { if(!quitting) { close.accepted=false; if(page!=="farewell") exitDialog.open() } }
@@ -142,7 +157,8 @@ ApplicationWindow {
             }
             Item {
                 anchors.fill: parent; visible: page === "question"
-                Text { text: (window.s.theme || "").toUpperCase() + " / " + (window.s.cost || "") + ""; color: "#dece85"; font.pixelSize: 25 }
+                Text { text: (window.s.theme || "").toUpperCase() + " / " + (window.s.cost || ""); color: "#dece85"; font.pixelSize: 25 }
+                Text { anchors.right: parent.right; y: 4; visible: window.s.training; text: "ВОПРОС " + window.s.number + " / " + window.s.total; color: "#a5b8d5"; font.pixelSize: 22 }
                 Item {
                     id: mediaArea; x: window.s.kind === "image" ? 75 : 300; y: 42; width: window.s.kind === "image" ? 1018 : 568; height: window.s.kind === "image" ? (window.s.answered ? 260 : 380) : 218
                     visible: window.s.kind !== "text"
@@ -181,7 +197,7 @@ ApplicationWindow {
                 RetroButton { anchors.horizontalCenter: parent.horizontalCenter; y: window.s.kind === "image" ? 560 : 482; implicitHeight: window.s.kind === "image" ? 36 : 52; visible: !window.s.answered; objectName: "revealButton"; text: "ПОКАЗАТЬ ОТВЕТ"; font.pixelSize: 21; onClicked: { game.revealAnswer(); audio.stop() } }
                 Column { x: 100; y: 401; width: 968; spacing: 6; visible: window.s.answered
                     Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: window.s.correct ? "ВЕРНО!" : "ОТВЕТ: " + (window.s.primaryAnswer || ""); color: window.s.correct ? "#b7dca0" : "#f0d394"; font.pixelSize: 31; wrapMode: Text.WordWrap }
-                    Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: "Твой ответ: " + (window.s.answer || "пропуск"); color: "#a5b8d5"; font.family: "DejaVu Sans"; font.pixelSize: 17; elide: Text.ElideRight }
+                    Text { width: parent.width; horizontalAlignment: Text.AlignHCenter; objectName: "answerFeedback"; text: window.s.answerViewed ? "Ответ просмотрен" : "Твой ответ: " + (window.s.answer || "пропуск"); color: "#a5b8d5"; font.family: "DejaVu Sans"; font.pixelSize: 17; elide: Text.ElideRight }
                     Item { width: 1; height: 24 }
                     RetroButton { anchors.horizontalCenter: parent.horizontalCenter; id: continueButton; text: "ПРОДОЛЖИТЬ"; accent: true; onClicked: game.advance() }
                 }
@@ -271,7 +287,14 @@ ApplicationWindow {
             Text { text: "СЧЁТ  " + window.s.score; color: "#edf1de"; font.pixelSize: 25 }
             Text { text: "ВЕРНО  " + window.s.correctCount + "   /   ОШИБКИ  " + window.s.wrongCount; color: "#9cb5d5"; font.pixelSize: 23 }
         }
-        Text { anchors.right: parent.right; anchors.rightMargin: 56; y: 754; text: page === "question" && window.s.training ? "ВОПРОС " + window.s.number + " / " + window.s.total : "ЛИЧНЫЙ ЭФИР · 01"; color: "#839dc3"; font.pixelSize: 21 }
+        RetroButton {
+            objectName: "finishSessionButton"; anchors.right: parent.right; anchors.rightMargin: 56; y: 744
+            implicitHeight: 40; implicitWidth: 230; font.pixelSize: 22
+            visible: page === "board" || (page === "question" && window.s.training)
+            text: window.s.training ? "ЗАВЕРШИТЬ ТРЕНИРОВКУ" : "ЗАВЕРШИТЬ ИГРУ"
+            onClicked: finishDialog.open()
+        }
+        Text { anchors.right: parent.right; anchors.rightMargin: 56; y: 754; visible: !(page === "board" || (page === "question" && window.s.training)); text: page === "question" && window.s.training ? "ВОПРОС " + window.s.number + " / " + window.s.total : "ЛИЧНЫЙ ЭФИР · 01"; color: "#839dc3"; font.pixelSize: 21 }
     }
     ShaderEffectSource {
         id: screenTexture
@@ -329,6 +352,7 @@ ApplicationWindow {
             RetroSlider { objectName: "musicSlider"; monochrome: true; width: 430; from: 0; to: 1; value: window.s.musicVolume; onMoved: game.setAudio(window.s.music,window.s.sounds,value,window.s.soundVolume) }
             RetroCheckBox { monochrome: true; text: "Звуки вопросов и ответов"; checked: window.s.sounds; onClicked: game.setAudio(window.s.music,checked,window.s.musicVolume,window.s.soundVolume) }
             RetroSlider { objectName: "soundSlider"; monochrome: true; width: 430; from: 0; to: 1; value: window.s.soundVolume; onMoved: { game.setAudio(window.s.music,window.s.sounds,window.s.musicVolume,value); if(!previewTimer.running && !previewSound.playing) previewTimer.start() } }
+            RetroCheckBox { objectName: "fullScreenToggle"; monochrome: true; text: "Полноэкранный режим · F11"; checked: window.s.fullScreen; onClicked: window.setFullScreen(checked) }
             RetroCheckBox { monochrome: true; text: "Выпуклый экран"; checked: window.s.curvature; onClicked: game.setCurvature(checked) }
             RetroCheckBox { monochrome: true; text: "Экранные помехи"; checked: window.s.effects; onClicked: game.setEffects(checked) }
         }
@@ -344,12 +368,27 @@ ApplicationWindow {
         onAccepted: { selectionTimer.stop(); game.shutdown(); exitAfterCue.start() }
     }
     Dialog {
-        id: leaveDialog; anchors.centerIn: parent; width: 520; modal: true; title: "Завершить сессию?"; standardButtons: Dialog.Ok | Dialog.Cancel
+        id: leaveDialog; objectName: "leaveDialog"; anchors.centerIn: parent; width: 520; modal: true; title: "Вернуться в меню?"; standardButtons: Dialog.Ok | Dialog.Cancel
         palette.window: "#101010"; palette.windowText: "#ffffff"; palette.text: "#ffffff"; palette.buttonText: "#ffffff"; palette.button: "#222222"; palette.highlight: "#ffffff"; palette.highlightedText: "#000000"
         background: Rectangle { color: "#101010"; border.color: "#888888" }
         header: Label { text: leaveDialog.title; color: "#ffffff"; font.bold: true; padding: 16; font.pixelSize: 26 }
         footer: DialogButtonBox { standardButtons: leaveDialog.standardButtons; spacing: 20; padding: 12; background: Rectangle { color: "transparent" } delegate: RetroButton { monochrome: true; implicitWidth: 110; implicitHeight: 44 } }
         Label { text: "Результаты ответов сохранятся в архиве.\nНезавершённый вопрос не учитывается."; font.family: "DejaVu Sans"; font.pixelSize: 17 }
-        onAccepted: { selectionTimer.stop(); rowFlash.stop(); game.finish() }
+        onAccepted: { selectionTimer.stop(); rowFlash.stop(); game.menu() }
     }
+    Dialog {
+        id: finishDialog; objectName: "finishDialog"; anchors.centerIn: parent; width: 560; modal: true
+        title: window.s.training ? "Завершить тренировку?" : "Завершить игру?"
+        palette.window: "#101010"; palette.windowText: "#ffffff"; palette.text: "#ffffff"
+        background: Rectangle { color: "#101010"; border.color: "#888888" }
+        header: Label { text: finishDialog.title; color: "white"; font.bold: true; padding: 16; font.pixelSize: 26 }
+        contentItem: Label { text: "Отвеченные вопросы сохранятся.\nОткрыть результаты текущей сессии?"; color: "white"; font.pixelSize: 22; wrapMode: Text.WordWrap }
+        footer: DialogButtonBox {
+            spacing: 16; padding: 12; background: Rectangle { color: "transparent" }
+            RetroButton { text: "ПРОДОЛЖИТЬ"; monochrome: true; implicitWidth: 160; implicitHeight: 44; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            RetroButton { objectName: "confirmFinishButton"; text: "ЗАВЕРШИТЬ"; monochrome: true; implicitWidth: 160; implicitHeight: 44; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+        }
+        onAccepted: { selectionTimer.stop(); rowFlash.stop(); audio.stop(); game.finish() }
+    }
+
 }

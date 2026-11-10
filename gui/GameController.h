@@ -34,6 +34,7 @@ public:
     Q_INVOKABLE void reviewMistakes();
     Q_INVOKABLE void setEffects(bool on);
     Q_INVOKABLE void setCurvature(bool on);
+    Q_INVOKABLE void setFullScreen(bool on);
 signals:
     void changed();
     void questionOpened();
@@ -63,6 +64,7 @@ private:
     QTimer roundTimer;
     bool revealing = false;
     bool curvature = false;
+    bool fullScreen = false, answerViewed = false;
     bool music = true, sounds = true;
     double musicVolume = 0.22, soundVolume = 0.6;
 };

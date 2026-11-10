@@ -96,6 +96,14 @@ TEST(GuiController, NormalTrainingAndClassicFinishShowResultsButShutdownShowsFar
     c.startClassic("Тест"); c.finish(); EXPECT_EQ(c.state()["screen"].toString(),"results");
     c.startTraining("Тест",{1},100,100,1); c.shutdown(); EXPECT_EQ(c.state()["screen"].toString(),"farewell");
 }
+TEST(GuiController, FullscreenPreferenceAndViewedAnswerAreIndependentFromEmptyAnswer) {
+    QSettings().clear(); GameController c; c.setFullScreen(true);
+    GameController restored; EXPECT_TRUE(restored.state()["fullScreen"].toBool());
+    c.startTraining("Тест",{1},100,200,2); c.revealAnswer(); EXPECT_TRUE(c.state()["answerViewed"].toBool());
+    c.advance(); EXPECT_FALSE(c.state()["answerViewed"].toBool()); c.submit(""); EXPECT_FALSE(c.state()["answerViewed"].toBool());
+    c.startClassic("Тест"); c.select(0); if(c.state()["screen"]=="cat") c.catStake(100);
+    c.revealAnswer(); EXPECT_TRUE(c.state()["answerViewed"].toBool());
+}
 TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     QSettings().clear(); GameController c; c.setAudio(false,false,0.2,0.3);
     QQmlApplicationEngine engine;
@@ -115,6 +123,13 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
         auto item=window->findChild<QQuickItem*>(name); EXPECT_NE(item,nullptr);
         if(item) { auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2)); if(window->property("curvatureInput").toBool() && !window->property("modalOpen").toBool()) point=Interaction::displayPoint(point,window->size()); QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,point.toPoint()); }
     };
+    window->requestActivate(); QTest::qWait(250);
+    auto originalSize=window->size();
+    QTest::keyClick(window,Qt::Key_F11); QTest::qWait(200);
+    EXPECT_TRUE(c.state()["fullScreen"].toBool());
+    EXPECT_EQ(window->visibility(),QWindow::FullScreen);
+    QTest::keyClick(window,Qt::Key_F11); QTest::qWait(200);
+    EXPECT_FALSE(c.state()["fullScreen"].toBool()); EXPECT_EQ(window->size(),originalSize);
     if(qEnvironmentVariableIsSet("OWNGAME_TEST_CURVATURE")) c.setCurvature(true);
     capture("01-menu");
     QTest::qWait(900); capture("01-menu-warm");
@@ -146,8 +161,14 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
     QPointF cellPoint(486,232); if(window->property("curvatureInput").toBool()) cellPoint=Interaction::displayPoint(cellPoint,window->size()); QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,cellPoint.toPoint()); QTest::qWait(650);
     if(c.state()["screen"]=="cat") { capture("03-cat"); c.catStake(100); }
     EXPECT_EQ(c.state()["screen"].toString(),"question"); capture("04-question");
-    c.submit(""); capture("05-answer"); c.advance(); c.finish(); capture("06-results"); c.menu();
+    c.revealAnswer(); EXPECT_EQ(window->findChild<QObject*>("answerFeedback")->property("text").toString(),QString::fromUtf8("Ответ просмотрен")); capture("05-answer"); c.advance(); c.finish(); capture("06-results"); c.menu();
+    c.startClassic("Тест"); click("finishSessionButton"); QTest::qWait(200);
+    EXPECT_EQ(c.state()["screen"].toString(),"board"); QTest::keyClick(window,Qt::Key_Escape);
+    EXPECT_EQ(c.state()["screen"].toString(),"board");
+    click("finishSessionButton"); QTest::qWait(200); click("confirmFinishButton");
+    EXPECT_EQ(c.state()["screen"].toString(),"results"); c.menu();
     c.startTraining("Тест",{1},100,200,2);
+    EXPECT_TRUE(window->findChild<QQuickItem*>("finishSessionButton")->isVisible());
     auto row=window->findChild<QQuickItem*>("answerRow"); ASSERT_NE(row,nullptr);
     EXPECT_NEAR(row->x()+row->width()/2,584.0,1.0);
     auto field=window->findChild<QObject*>("answerInput"); ASSERT_NE(field,nullptr);
@@ -160,6 +181,9 @@ TEST(GuiView, LoadsAndSupportsMouseSelectionAndAllMediaLayouts) {
         capture(id==17?"07-audio":"08-image");
         c.submit(c.state()["primaryAnswer"].toString()); c.advance(); c.menu();
     }
+    c.startTraining("Тест",{1},100,200,2); c.revealAnswer();
+    click("finishSessionButton"); QTest::qWait(200); click("confirmFinishButton");
+    EXPECT_EQ(c.state()["screen"].toString(),"results"); EXPECT_EQ(c.state()["wrongCount"].toInt(),1); c.menu();
     c.startClassic("Тест");
     for(int cell=0; cell<30; ++cell) {
         c.select(cell);
